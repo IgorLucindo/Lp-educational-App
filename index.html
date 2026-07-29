@@ -1,0 +1,185 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LP Teacher</title>
+  <link rel="stylesheet" href="website/css/vars.css" />
+  <link rel="stylesheet" href="website/css/styles.css" />
+  <link rel="stylesheet" href="website/css/header.css" />
+  <link rel="stylesheet" href="website/css/main.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet" />
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+
+  <!-- â”€â”€ HEADER â”€â”€ -->
+  <header class="app-header">
+    <div class="header-brand">
+
+      <span class="header-brand-name">LP Teacher</span>
+    </div>
+
+    <div class="header-divider"></div>
+
+    <nav class="header-nav">
+      <button class="nav-btn active" id="btn-simplex">
+        <i class="fas fa-project-diagram"></i> Simplex
+      </button>
+      <button class="nav-btn coming-soon" disabled title="Coming soon">
+        <i class="fas fa-sitemap"></i> Branch &amp; Bound
+      </button>
+      <button class="nav-btn coming-soon" disabled title="Coming soon">
+        <i class="fas fa-dot-circle"></i> Interior Point
+      </button>
+    </nav>
+
+    <div class="header-spacer"></div>
+
+    <div class="header-actions">
+      <button id="theme-toggle" class="theme-btn" aria-label="Toggle theme">
+        <i class="fas fa-moon"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- â”€â”€ MAIN GRID â”€â”€ -->
+  <div class="main-grid">
+
+    <!-- â”€â”€ LEFT: LP PANEL â”€â”€ -->
+    <aside class="left-col">
+      <div class="panel lp-display-panel">
+
+        <!-- Header with Generate + Options -->
+        <div class="panel-header">
+          <span class="panel-title"><i class="fas fa-function"></i> LP Problem</span>
+          <div class="lp-header-btns">
+            <button id="options-toggle-btn" class="btn-icon tooltip-wrap" data-tip="Generator options">
+              <i class="fas fa-cog"></i>
+            </button>
+            <button id="generate-btn" class="btn btn-generate">
+              <i class="fas fa-bolt"></i> Generate
+            </button>
+            <span class="tag" id="lp-status-tag">No LP</span>
+          </div>
+        </div>
+
+        <!-- Collapsible generator options -->
+        <div class="options-panel" id="options-panel">
+          <div class="options-inner">
+
+            <div class="ctrl-group">
+              <div class="ctrl-label">Variables</div>
+              <div class="ctrl-row">
+                <button class="opt-btn selected" data-vars="2">2 variables</button>
+                <button class="opt-btn" data-vars="3">3 variables</button>
+              </div>
+            </div>
+
+            <div class="ctrl-group">
+              <div class="ctrl-label">Solution Type</div>
+              <div class="ctrl-row">
+                <button class="opt-btn selected" data-sol="unique">Unique</button>
+                <button class="opt-btn" data-sol="multiple">Multiple</button>
+                <button class="opt-btn" data-sol="infeasible">Infeasible</button>
+              </div>
+            </div>
+
+            <div class="ctrl-group">
+              <div class="ctrl-label">
+                Constraints&nbsp;
+                <span id="constraint-count-val" class="ctrl-count">4</span>
+              </div>
+              <input type="range" id="constraint-count" min="2" max="8" value="4" class="range-input" />
+            </div>
+
+          </div>
+        </div>
+
+        <!-- LP content -->
+        <div class="panel-body" id="lp-body">
+          <div class="lp-empty">
+            <i class="fas fa-magic" style="font-size:2rem;color:var(--accent-light-fg);margin-bottom:10px"></i>
+            <p>Click <strong>Generate</strong> to create an LP problem.</p>
+          </div>
+        </div>
+
+      </div>
+    </aside>
+
+    <!-- â”€â”€ CENTER: POLYHEDRON VISUALIZER (full height) â”€â”€ -->
+    <section class="center-col">
+      <div class="panel viz-panel">
+        <div class="panel-header">
+          <span class="panel-title"><i class="fas fa-cube"></i> Polyhedron</span>
+          <div class="viz-header-actions">
+            <span class="viz-hint" id="viz-hint">Generate an LP to visualize</span>
+            <button class="btn-icon tooltip-wrap" id="viz-reset-btn" data-tip="Reset view">
+              <i class="fas fa-home"></i>
+            </button>
+          </div>
+        </div>
+        <div class="panel-body viz-body" id="viz-container">
+          <!-- Canvas or Three.js renderer injected here -->
+        </div>
+      </div>
+    </section>
+
+    <!-- â”€â”€ RIGHT: AI TEACHER â”€â”€ -->
+    <aside class="right-col">
+      <div class="panel ai-panel">
+        <div class="panel-header">
+          <span class="panel-title">AI Teacher</span>
+          <div class="ai-status-wrap">
+            <span class="status-dot checking" id="ai-dot-2"></span>
+            <span class="status-label" id="ai-label-2">Checking...</span>
+          </div>
+        </div>
+
+        <div class="ai-messages" id="ai-messages">
+          <div class="ai-msg assistant">
+            <div class="ai-avatar"><i class="fas fa-robot"></i></div>
+            <div class="ai-bubble">
+              Hi! I'm your LP &amp; Simplex teacher. Click <strong>Generate</strong> to create a problem and I'll introduce it and walk you through every simplex step!
+            </div>
+          </div>
+        </div>
+
+        <!-- Explain Next Step button -->
+        <div class="ai-explain-row">
+          <button id="explain-next-btn" class="btn btn-explain" disabled>
+            <i class="fas fa-chalkboard-teacher"></i> Explain Next Step &rarr;
+          </button>
+        </div>
+
+        <div class="ai-input-area">
+          <textarea
+            id="ai-input"
+            class="ai-textarea"
+            placeholder="Ask about the LP or simplex steps..."
+            rows="1"
+          ></textarea>
+          <button class="ai-send-btn" id="ai-send" aria-label="Send">
+            <i class="fas fa-paper-plane"></i>
+          </button>
+        </div>
+      </div>
+    </aside>
+
+  </div><!-- /main-grid -->
+
+  <script src="website/src/utils/toggleTheme.js"></script>
+  <script type="module" src="website/src/index.js"></script>
+
+</body>
+</html>
