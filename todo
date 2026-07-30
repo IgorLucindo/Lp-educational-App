@@ -6,6 +6,8 @@
 
 - make animations on graph visualizer for each iteration of simplex, like animating the arrow showing the direction of movement, animating the highlight btn. there can be other very cool ideas to add.
 
-- fix ai teacher to only use ai model with we type on chat, but for clicking next step btn, we can have preset messages.
+- fix ai teacher to only use ai model with we type on chat, but for clicking next step btn, we can have preset messages. messages should be located in website/data/messages.json.
 
 - lp generator should only generate non redundant constraints.
+
+- move commands from CommandManager to website/data/commands.js.

@@ -2,8 +2,6 @@
 
 An interactive educational website for learning **Linear Programming (LP)** and the **Simplex Method**.
 
----
-
 ## Features
 
 ### LP Generator
@@ -34,21 +32,9 @@ An interactive educational website for learning **Linear Programming (LP)** and 
   - `{reset_highlights}` → clears all highlights
 - Politely declines off-topic questions
 
----
+## Setup
 
-## Setup & Usage
-
-### 1. Open the app
-
-Just open `index.html` in a modern browser (Chrome 113+, Edge, Firefox 122+):
-
-```
-index.html
-```
-
-No server, no build step needed. Three.js and fonts load from CDN.
-
-### 2. Install Ollama for the AI Teacher
+Ollama for the AI Teacher:
 
 1. Download and install **Ollama**: [https://ollama.com](https://ollama.com)
 2. Pull the default model:
@@ -58,3 +44,7 @@ No server, no build step needed. Three.js and fonts load from CDN.
 3. Ollama runs in the background automatically. The AI status indicator in the header turns green.
 
 > The rest of the app (generator, solver, visualizer) works without Ollama.
+
+## Execution
+
+Open `start.bat` to initialize the app.
