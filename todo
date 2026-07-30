@@ -1,0 +1,11 @@
+- make readme like in my other repositories.
+
+- when there is no lp, instead of having a blank container, lets make the btns of generate and options there, but if it has been generated, we go back with the current styles.
+
+- make animations in graph visualizer for building the polyhedron when generate the lp problem.
+
+- make animations on graph visualizer for each iteration of simplex, like animating the arrow showing the direction of movement, animating the highlight btn. there can be other very cool ideas to add.
+
+- fix ai teacher to only use ai model with we type on chat, but for clicking next step btn, we can have preset messages.
+
+- lp generator should only generate non redundant constraints.
