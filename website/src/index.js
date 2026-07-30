@@ -688,12 +688,12 @@ aiTeacher.checkAvailability().then(state => {
   updateStatus(state);
   if (state === 'missing') {
     appendMessage(aiMessages, 'assistant',
-      'â„¹ï¸ Ollama is running but <strong>llama3.2</strong> is not installed.<br>' +
+      'Ollama is running but <strong>llama3.2</strong> is not installed.<br>' +
       'Run: <code>ollama pull llama3.2</code>, then refresh.'
     );
   } else if (state === 'offline') {
     appendMessage(aiMessages, 'assistant',
-      'â„¹ï¸ Ollama is not running. The AI teacher requires it.<br>' +
+      'Ollama is not running. The AI teacher requires it.<br>' +
       'Install: <a href="https://ollama.com" target="_blank">ollama.com</a><br>' +
       'Then: <code>ollama pull llama3.2</code>'
     );
