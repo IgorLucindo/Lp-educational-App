@@ -1,8 +1,10 @@
-# LP Teacher — Interactive Linear Programming Educator
+# 📖 LP Teacher — Interactive Linear Programming Educator
+
+[![Open App](https://img.shields.io/badge/OPEN_APP-Lp_Teacher-2ea44f?style=for-the-badge)](https://igorlucindo.github.io/lp-teacher-APP/)
 
 An interactive educational website for learning **Linear Programming (LP)** and the **Simplex Method**.
 
-## Features
+## ✨ Features
 
 ### LP Generator
 - Generate random LP problems with **2 or 3 decision variables** and **up to 8 constraints**
@@ -32,19 +34,10 @@ An interactive educational website for learning **Linear Programming (LP)** and 
   - `{reset_highlights}` → clears all highlights
 - Politely declines off-topic questions
 
-## Setup
+## 🚀 Interactive App
 
-Ollama for the AI Teacher:
+To make Linear Programming more accessible to students and non-technical audiences, we provide a web-based interactive educational app. This tool allows users to generate LP problems, visualize the feasible region and constraints, and step through the optimization process.
 
-1. Download and install **Ollama**: [https://ollama.com](https://ollama.com)
-2. Pull the default model:
-   ```bash
-   ollama pull llama3.2
-   ```
-3. Ollama runs in the background automatically. The AI status indicator in the header turns green.
+[![Open App](https://img.shields.io/badge/OPEN_APP-Lp_Teacher-2ea44f?style=for-the-badge)](https://igorlucindo.github.io/lp-teacher-APP/)
 
-> The rest of the app (generator, solver, visualizer) works without Ollama.
-
-## Execution
-
-Open `start.bat` to initialize the app.
+Users can interact with the problem directly to validate logical constraints and learn optimization theory with the help of an integrated AI tutor.
