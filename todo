@@ -1,3 +1,5 @@
+- index.js appears a complete mess eventhough it works, no? I feel like things could be structured better. if u feel like, u can create or edit files to improve the code architecture.
+
 - the website should have the simplex tableau. see inspiration/layout. lp problem container should go on the very top, simplex tableau container goes on the bottom left, polyhedron container goes on the bottom middle, ocupying the biggest space, ai teacher stays exactly where it is.
 
 - the idea of the website should be students try answering what is the point simplex will go after each iteraction. so the only points to show are the options for user to click. lets call those points option points. other points are not shown in the polyhedron.

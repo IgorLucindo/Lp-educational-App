@@ -1,53 +1,39 @@
 import { formatLPText } from '../utils/utils.js';
+import { CreateMLCEngine } from "https://esm.run/@mlc-ai/web-llm";
 
 /* ═══════════════════════════════════════════
-   AiModel — thin wrapper around the Ollama REST API
+   AiTeacher — context-aware LP tutor (WebLLM Edition)
    ═══════════════════════════════════════════ */
-class AiModel {
-  constructor(apiBase = 'http://localhost:11434', modelName = 'llama3.2') {
-    this.apiBase   = apiBase;
-    this.modelName = modelName;
-  }
-
-  /** Send a messages array to Ollama. Returns the assistant reply string. */
-  async chat(messages) {
-    const res = await fetch(`${this.apiBase}/api/chat`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ model: this.modelName, messages, stream: false }),
-    });
-    if (!res.ok) throw new Error(`Ollama returned HTTP ${res.status}: ${res.statusText}`);
-    const data = await res.json();
-    return data.message?.content ?? '';
-  }
-
-  /** Check if Ollama is reachable and the model is available.
-   *  Returns 'online' | 'missing' | 'offline' */
-  async checkAvailability() {
-    try {
-      const res = await fetch(`${this.apiBase}/api/tags`);
-      if (!res.ok) return 'offline';
-      const data = await res.json();
-      const found = (data.models ?? []).some(
-        m => m.name === this.modelName || m.name.startsWith(this.modelName + ':')
-      );
-      return found ? 'online' : 'missing';
-    } catch {
-      return 'offline';
-    }
-  }
-}
-
-/* ═══════════════════════════════════════════
-   AiTeacher — context-aware LP tutor
-   ═══════════════════════════════════════════ */
-export class AiTeacher extends AiModel {
+export class AiTeacher {
   constructor() {
-    super('http://localhost:11434', 'llama3.2');
-    this.currentLP         = null;
-    this.currentSolverLog  = '';
-    this.currentStatus     = 'Not solved yet';
-    this.history           = [];   // {role, content}[]
+    // Application State
+    this.currentLP        = null;
+    this.currentSolverLog = '';
+    this.currentStatus    = 'Not solved yet';
+    this.history          = [];   // {role, content}[]
+    
+    // WebLLM Engine State
+    this.engine = null;
+    this.selectedModel = "Llama-3.2-1B-Instruct-q4f16_1-MLC";
+    this.isReady = false;
+  }
+
+  /**
+   * Initializes the WebLLM engine and downloads the model to the browser.
+   */
+  async init(onProgressCallback) {
+    try {
+        this.engine = await CreateMLCEngine(this.selectedModel, {
+            initProgressCallback: (progress) => {
+                if (onProgressCallback) {
+                    onProgressCallback(progress);
+                }
+            }
+        });
+        this.isReady = true;
+    } catch (error) {
+        console.error("WebLLM initialization failed:", error);
+    }
   }
 
   /**
@@ -61,18 +47,28 @@ export class AiTeacher extends AiModel {
     this.history          = [];   // fresh conversation with new context
   }
 
-  /** Send a user message and get the AI response. */
+  /** Send a user message and get the AI response using WebLLM. */
   async ask(userMessage) {
+    if (!this.isReady || !this.engine) {
+        throw new Error("Model is not initialized yet. Please wait.");
+    }
+
     const system  = { role: 'system',    content: this._buildSystemPrompt() };
     const userMsg = { role: 'user',      content: userMessage };
+    
     this.history.push(userMsg);
-
     const messages = [system, ...this.history];
 
     try {
-      const reply = await this.chat(messages);
-      this.history.push({ role: 'assistant', content: reply });
-      return reply;
+      // Send request to WebLLM (replacing the old this.chat() Ollama fetch)
+      const reply = await this.engine.chat.completions.create({
+          messages: messages,
+      });
+      
+      const assistantContent = reply.choices[0].message.content;
+      this.history.push({ role: 'assistant', content: assistantContent });
+      
+      return assistantContent;
     } catch (err) {
       this.history.pop();   // rollback user message on error
       throw err;

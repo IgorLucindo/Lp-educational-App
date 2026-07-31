@@ -684,19 +684,29 @@ if (DEBUGMODE) initLogDir();
    AI availability check on load
    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 updateStatus('checking');
-aiTeacher.checkAvailability().then(state => {
-  updateStatus(state);
-  if (state === 'missing') {
-    appendMessage(aiMessages, 'assistant',
-      'Ollama is running but <strong>llama3.2</strong> is not installed.<br>' +
-      'Run: <code>ollama pull llama3.2</code>, then refresh.'
-    );
-  } else if (state === 'offline') {
-    appendMessage(aiMessages, 'assistant',
-      'Ollama is not running. The AI teacher requires it.<br>' +
-      'Install: <a href="https://ollama.com" target="_blank">ollama.com</a><br>' +
-      'Then: <code>ollama pull llama3.2</code>'
-    );
-  }
-});
 
+async function initializeAI() {
+    try {
+        await aiTeacher.init((progressInfo) => {
+            // progressInfo.progress is a float between 0.0 and 1.0
+            const percent = (progressInfo.progress * 100).toFixed(0);
+            
+            // You can optionally update the status UI directly with the progress text
+            // e.g. "Loading model: 45%"
+            updateStatus(`loading: ${percent}%`);
+        });
+
+        // Once init finishes, the model is cached and ready.
+        updateStatus('online');
+        
+    } catch (error) {
+        console.error("Failed to load WebLLM:", error);
+        updateStatus('offline');
+        appendMessage(aiMessages, 'assistant',
+            'Failed to load the AI model in your browser. Ensure you are on a modern browser and the service worker is active.'
+        );
+    }
+}
+
+// Start the initialization
+initializeAI();
