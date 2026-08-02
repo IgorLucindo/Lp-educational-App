@@ -54,14 +54,12 @@
     </div>
   </header>
 
-  <!-- â”€â”€ MAIN GRID â”€â”€ -->
+    <!-- ── MAIN GRID ── -->
   <div class="main-grid">
 
-    <!-- â”€â”€ LEFT: LP PANEL â”€â”€ -->
-    <aside class="left-col">
+    <!-- ── LP PROBLEM (top, spans cols 1-2) ── -->
+    <aside class="lp-area">
       <div class="panel lp-display-panel">
-
-        <!-- Header with Generate + Options -->
         <div class="panel-header">
           <span class="panel-title"><i class="fas fa-function"></i> LP Problem</span>
           <div class="lp-header-btns">
@@ -71,14 +69,10 @@
             <button id="generate-btn" class="btn btn-generate">
               <i class="fas fa-bolt"></i> Generate
             </button>
-            <span class="tag" id="lp-status-tag">No LP</span>
           </div>
         </div>
-
-        <!-- Collapsible generator options -->
         <div class="options-panel" id="options-panel">
           <div class="options-inner">
-
             <div class="ctrl-group">
               <div class="ctrl-label">Variables</div>
               <div class="ctrl-row">
@@ -86,7 +80,6 @@
                 <button class="opt-btn" data-vars="3">3 variables</button>
               </div>
             </div>
-
             <div class="ctrl-group">
               <div class="ctrl-label">Solution Type</div>
               <div class="ctrl-row">
@@ -95,7 +88,6 @@
                 <button class="opt-btn" data-sol="infeasible">Infeasible</button>
               </div>
             </div>
-
             <div class="ctrl-group">
               <div class="ctrl-label">
                 Constraints&nbsp;
@@ -103,23 +95,31 @@
               </div>
               <input type="range" id="constraint-count" min="2" max="8" value="4" class="range-input" />
             </div>
-
           </div>
         </div>
-
-        <!-- LP content -->
-        <div class="panel-body" id="lp-body">
-          <div class="lp-empty">
-            <i class="fas fa-magic" style="font-size:2rem;color:var(--accent-light-fg);margin-bottom:10px"></i>
-            <p>Click <strong>Generate</strong> to create an LP problem.</p>
-          </div>
+        <div class="panel-body lp-panel-body" id="lp-body">
         </div>
-
       </div>
     </aside>
 
-    <!-- â”€â”€ CENTER: POLYHEDRON VISUALIZER (full height) â”€â”€ -->
-    <section class="center-col">
+    <!-- ── SIMPLEX TABLEAU (bottom-left) ── -->
+    <section class="tableau-area">
+      <div class="panel tableau-panel">
+        <div class="panel-header">
+          <span class="panel-title"><i class="fas fa-table"></i> Simplex Tableau</span>
+          <span class="panel-subtitle">What the math says</span>
+        </div>
+        <div class="panel-body tableau-body" id="tableau-container">
+          <div class="tableau-empty">
+            <i class="fas fa-table"></i>
+            <p>Generate an LP to see the simplex tableau.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── POLYHEDRON (spans both rows, center) ── -->
+    <section class="poly-area">
       <div class="panel viz-panel">
         <div class="panel-header">
           <span class="panel-title"><i class="fas fa-cube"></i> Polyhedron</span>
@@ -136,8 +136,8 @@
       </div>
     </section>
 
-    <!-- â”€â”€ RIGHT: AI TEACHER â”€â”€ -->
-    <aside class="right-col">
+    <!-- ── AI TEACHER (full height, right) ── -->
+    <aside class="ai-area">
       <div class="panel ai-panel">
         <div class="panel-header">
           <span class="panel-title">AI Teacher</span>
@@ -146,30 +146,21 @@
             <span class="status-label" id="ai-label-2">Checking...</span>
           </div>
         </div>
-
         <div class="ai-messages" id="ai-messages">
           <div class="ai-msg assistant">
             <div class="ai-avatar"><i class="fas fa-robot"></i></div>
             <div class="ai-bubble">
-              Hi! I'm your LP &amp; Simplex teacher. Click <strong>Generate</strong> to create a problem and I'll introduce it and walk you through every simplex step!
+              Hi! I'm your LP &amp; Simplex teacher. Click <strong>Generate</strong> to create a problem, then click the correct next vertex on the polyhedron to step through simplex!
             </div>
           </div>
         </div>
-
-        <!-- Explain Next Step button -->
         <div class="ai-explain-row">
           <button id="explain-next-btn" class="btn btn-explain" disabled>
             <i class="fas fa-chalkboard-teacher"></i> Explain Next Step &rarr;
           </button>
         </div>
-
         <div class="ai-input-area">
-          <textarea
-            id="ai-input"
-            class="ai-textarea"
-            placeholder="Ask about the LP or simplex steps..."
-            rows="1"
-          ></textarea>
+          <textarea id="ai-input" class="ai-textarea" placeholder="Ask about the LP or simplex steps..." rows="1"></textarea>
           <button class="ai-send-btn" id="ai-send" aria-label="Send">
             <i class="fas fa-paper-plane"></i>
           </button>

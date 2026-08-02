@@ -2,28 +2,33 @@
    LP TEACHER — Main Layout & Components
    ═══════════════════════════════════════════ */
 
-/* ── Main 3-column grid ── */
+/* ── Main 4-area grid ── */
 .main-grid {
   margin-top: var(--header-h);
   display: grid;
-  grid-template-columns: 300px 1fr 320px;
-  grid-template-rows: 1fr;          /* flex-fill, not fixed px */
+  /*
+   * Columns: LP/Tableau (fixed) | Polyhedron (flex) | AI (fixed)
+   * Rows:    LP problem (auto) | Tableau+Poly (fill remaining)
+   */
+  grid-template-columns: 290px 1fr 320px;
+  grid-template-rows: auto 1fr;
+  grid-template-areas:
+    "lp   poly  ai"
+    "tab  poly  ai";
   gap: 10px;
-  padding: 10px 10px 14px;          /* extra bottom breathing room */
+  padding: 10px 10px 14px;
   height: calc(100vh - var(--header-h));
   overflow: hidden;
 }
 
-/* ── Columns ── */
-.left-col, .right-col {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  overflow: hidden;
-  min-height: 0;
-}
+/* ── Grid area assignments ── */
+.lp-area      { grid-area: lp;  display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
+.tableau-area { grid-area: tab; display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
+.poly-area    { grid-area: poly; display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
+.ai-area      { grid-area: ai;  display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
 
-.center-col {
+/* Legacy column classes kept for backward compat */
+.left-col, .right-col, .center-col {
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -35,8 +40,15 @@
    LP PANEL
    ═══════════════════════════════════════════ */
 
-.lp-display-panel { flex: 1; min-height: 0; }
-.lp-display-panel .panel-body { padding: 10px 12px; }
+.lp-display-panel { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.lp-display-panel .panel-body { padding: 10px 12px; overflow-y: auto; }
+
+/* LP panel body constrained so it doesn't push down into tableau row */
+.lp-panel-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
 
 /* LP header action buttons */
 .lp-header-btns {
@@ -82,22 +94,30 @@
   background: var(--bg-surface);
 }
 
-/* Empty state */
-.lp-empty {
+/* Empty state start panel */
+.lp-start {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  gap: 16px;
+  padding: 4px 0;
+}
+
+.lp-start-gen {
+  width: 100%;
   justify-content: center;
-  height: 100%;
-  text-align: center;
-  color: var(--text-muted);
-  gap: 6px;
-  font-size: 0.82rem;
+  padding: 10px;
+  font-size: 0.9rem;
+}
+
+.lp-start-opts {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 /* LP content when generated */
 .lp-obj-section, .lp-constraints-section, .lp-nn-section {
-  margin-bottom: 12px;
+  margin-bottom: 6px;
 }
 
 .lp-section-label {
@@ -106,14 +126,14 @@
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-muted);
-  margin-bottom: 5px;
+  margin-bottom: 3px;
 }
 
 .lp-obj-line {
   font-family: var(--font-mono);
   font-size: 0.88rem;
   color: var(--text-h);
-  padding: 6px 10px;
+  padding: 0 10px;
   background: transparent;
   border-radius: var(--r-sm);
   border-left: 3px solid var(--accent);
@@ -147,7 +167,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 8px;
+  padding: 0 8px;
   border-radius: var(--r-sm);
   border: 1.5px solid transparent;
   cursor: pointer;
@@ -268,24 +288,6 @@
   padding-left: 10px;
 }
 
-/* Solution result */
-.solution-box {
-  margin-top: 8px;
-  padding: 10px 12px;
-  border-radius: var(--r-md);
-  border-left: 3px solid var(--green);
-  background: var(--green-bg);
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
-  line-height: 1.7;
-  color: var(--text-body);
-}
-.solution-box.infeasible  { border-color: var(--red);   background: var(--red-bg);   }
-.solution-box.unbounded   { border-color: var(--amber); background: var(--amber-bg); }
-.solution-title { font-weight: 700; color: var(--green); margin-bottom: 2px; }
-.solution-box.infeasible .solution-title  { color: var(--red);   }
-.solution-box.unbounded  .solution-title  { color: var(--amber); }
-.solution-val  { color: var(--text-h); }
 
 /* ═══════════════════════════════════════════
    GENERATOR CONTROLS
@@ -342,10 +344,105 @@
 .gen-btn { width: 100%; justify-content: center; padding: 9px; font-size: 0.88rem; }
 
 /* ═══════════════════════════════════════════
+   SIMPLEX TABLEAU
+   ═══════════════════════════════════════════ */
+
+.tableau-panel { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+
+.tableau-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px 10px !important;
+  display: flex;
+  flex-direction: column;
+}
+
+.tableau-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  text-align: center;
+}
+.tableau-empty i { font-size: 1.6rem; color: var(--accent-light-fg); }
+
+.tableau-scroll { overflow-x: auto; overflow-y: auto; flex: 1; min-height: 0; }
+
+.simplex-tab {
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.simplex-tab th,
+.simplex-tab td {
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  text-align: center;
+  color: var(--text-body);
+}
+
+.simplex-tab thead th {
+  background: var(--bg-surface);
+  font-weight: 700;
+  color: var(--text-sub);
+  font-size: 0.7rem;
+}
+
+.simplex-tab tbody th {
+  background: var(--bg-surface);
+  font-weight: 700;
+  color: var(--text-sub);
+  text-align: left;
+  padding-left: 10px;
+}
+
+/* Pivot element highlight (red border like in inspiration) */
+.simplex-tab .tc-piv-elem {
+  border: 2px solid var(--red) !important;
+  color: var(--red);
+  font-weight: 800;
+  background: var(--red-bg);
+}
+
+/* Pivot column / row soft highlights */
+.simplex-tab .tc-piv-col { background: rgba(92,110,248,0.08); }
+.simplex-tab .tc-piv-row { background: var(--amber-bg); }
+
+.tableau-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 2px 2px;
+  font-size: 0.73rem;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.tf-iter   { font-weight: 700; color: var(--text-sub); }
+.tf-corner { font-family: var(--font-mono); color: var(--text-muted); }
+.tf-z      { font-family: var(--font-mono); font-weight: 700; color: var(--accent); }
+
+/* Panel subtitle (used in Tableau header) */
+.panel-subtitle {
+  font-size: 0.68rem;
+  font-style: italic;
+  color: var(--text-muted);
+  margin-left: auto;
+  padding-right: 2px;
+}
+
+/* ═══════════════════════════════════════════
    VISUALIZER
    ═══════════════════════════════════════════ */
 
-.viz-panel { flex: 1; min-height: 0; }  /* fills full center column now */
+.viz-panel { flex: 1; min-height: 0; }  /* fills full poly-area */
 
 .viz-header-actions {
   display: flex;
@@ -375,6 +472,17 @@
   line-height: 1.4;
   margin: 0 1px;
 }
+
+.mouse-btn-img {
+  display: inline-block;
+  height: 16px;
+  width: auto;
+  vertical-align: middle;
+  margin: 0 2px;
+  opacity: 0.8;
+}
+.mouse-btn-m2 { transform: scaleX(-1); }
+.dark-theme .mouse-btn-img { filter: invert(0.85) brightness(1.3); }
 
 .viz-body {
   padding: 0 !important;

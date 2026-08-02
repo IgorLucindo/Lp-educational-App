@@ -154,6 +154,13 @@ export class GraphVisualizer {
     this.highlighted = new Set(); // highlighted constraint indices (1-based)
     this.activeStep  = -1;    // highlighted simplex step vertex index
 
+    // Option-points mode (Task 3)
+    this._optionMode       = false;
+    this._optionCurrent    = null;   // current vertex [x,y] or [x,y,z]
+    this._optionPoints     = [];     // clickable candidate vertices
+    this._onOptionSelect   = null;   // (point) => void
+    this._optionSpheres    = [];     // Three.js meshes for 3D option points
+
     // 2D state
     this._canvas2d  = null;
     this._ctx       = null;
@@ -203,9 +210,10 @@ export class GraphVisualizer {
     this._planeForIdx  = null;
 
     const numVars = lp.variables.length;
-    if (numVars !== (this.mode === '2d' ? 2 : 3)) {
+    const needed   = numVars === 2 ? '2d' : '3d';
+    if (this.mode !== needed) {
       this._cleanup();
-      numVars === 2 ? this._init2D() : this._init3D();
+      needed === '2d' ? this._init2D() : this._init3D();
     }
 
     if (this.mode === '2d') {
@@ -240,6 +248,35 @@ export class GraphVisualizer {
   showStep(stepIdx) {
     this.activeStep = stepIdx;
     this._applyHighlights();
+  }
+
+  /**
+   * Enter option-points mode: only the current vertex and the provided
+   * option points are visible.  Clicking an option point fires onSelect(point).
+   */
+  setOptionPoints(currentPt, optionPoints, onSelect) {
+    this._optionMode     = true;
+    this._optionCurrent  = currentPt;
+    this._optionPoints   = optionPoints;
+    this._onOptionSelect = onSelect;
+    if (this.mode === '2d') {
+      this._draw2D();
+    } else if (this.mode === '3d') {
+      this._rebuildOptionSpheres3D();
+    }
+  }
+
+  /** Leave option-points mode and restore normal vertex rendering. */
+  clearOptionPoints() {
+    this._optionMode    = false;
+    this._optionCurrent = null;
+    this._optionPoints  = [];
+    this._onOptionSelect = null;
+    if (this.mode === '2d') {
+      this._draw2D();
+    } else if (this.mode === '3d') {
+      this._removeOptionSpheres3D();
+    }
   }
 
   resetView() {
@@ -314,6 +351,9 @@ export class GraphVisualizer {
     // Constraint line hover detection
     canvas.addEventListener('mousemove', e => this._onMouseMove2D(e));
     canvas.addEventListener('mouseleave', () => this._onMouseLeave2D());
+
+    // Option-point click handling
+    canvas.addEventListener('click', e => this._onCanvasClick2D(e));
 
     new ResizeObserver(() => this.resize()).observe(this.container);
   }
@@ -455,32 +495,84 @@ export class GraphVisualizer {
       });
     }
 
-    /* Vertices */
-    this.vertices.forEach((v, idx) => {
-      const isStep = idx === this.activeStep;
-      const [cx, cy] = this._w2c(...v);
-      if (cx < -10 || cx > W + 10 || cy < -10 || cy > H + 10) return;
+    /* Vertices — option-points mode shows only current + options; normal shows all */
+    if (this._optionMode) {
+      // Current vertex
+      if (this._optionCurrent) {
+        const [cx, cy] = this._w2c(...this._optionCurrent);
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cx, cy, 8, 0, Math.PI * 2);
+        ctx.fillStyle   = isDark ? '#fbbf24' : '#d97706';
+        ctx.fill();
+        ctx.strokeStyle = isDark ? '#0c0c1a' : '#fff';
+        ctx.lineWidth   = 2;
+        ctx.stroke();
+        ctx.restore();
+        const lbl = `(${this._optionCurrent.map(x => Math.round(x * 100) / 100).join(', ')})`;
+        ctx.save();
+        ctx.font      = 'bold 10px Fira Code,monospace';
+        ctx.fillStyle = isDark ? '#fbbf24' : '#d97706';
+        ctx.fillText('you are here  ' + lbl, cx + 10, cy - 6);
+        ctx.restore();
+      }
+      // Option points (clickable)
+      this._optionPoints.forEach((v, i) => {
+        const [cx, cy] = this._w2c(...v);
+        if (cx < -10 || cx > W + 10 || cy < -10 || cy > H + 10) return;
+        // Pulsing ring
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cx, cy, 13, 0, Math.PI * 2);
+        ctx.strokeStyle = isDark ? 'rgba(129,140,248,0.45)' : 'rgba(92,110,248,0.3)';
+        ctx.lineWidth   = 2;
+        ctx.stroke();
+        ctx.restore();
+        // Dot
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cx, cy, 7, 0, Math.PI * 2);
+        ctx.fillStyle   = isDark ? '#818cf8' : '#5c6ef8';
+        ctx.fill();
+        ctx.strokeStyle = isDark ? '#e8e8ff' : '#fff';
+        ctx.lineWidth   = 2;
+        ctx.stroke();
+        ctx.restore();
+        // Label
+        const lbl = `(${v.map(x => Math.round(x * 100) / 100).join(', ')})`;
+        ctx.save();
+        ctx.font      = '10px Fira Code,monospace';
+        ctx.fillStyle = isDark ? '#818cf8' : '#5c6ef8';
+        ctx.fillText(lbl, cx + 9, cy - 6);
+        ctx.restore();
+      });
+    } else {
+      this.vertices.forEach((v, idx) => {
+        const isStep = idx === this.activeStep;
+        const [cx, cy] = this._w2c(...v);
+        if (cx < -10 || cx > W + 10 || cy < -10 || cy > H + 10) return;
 
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(cx, cy, isStep ? 8 : 5, 0, Math.PI * 2);
-      ctx.fillStyle   = isStep
-        ? (isDark ? '#fbbf24' : '#d97706')
-        : (isDark ? '#818cf8' : '#5c6ef8');
-      ctx.fill();
-      ctx.strokeStyle = isDark ? '#0c0c1a' : '#ffffff';
-      ctx.lineWidth   = 2;
-      ctx.stroke();
-      ctx.restore();
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cx, cy, isStep ? 8 : 5, 0, Math.PI * 2);
+        ctx.fillStyle   = isStep
+          ? (isDark ? '#fbbf24' : '#d97706')
+          : (isDark ? '#818cf8' : '#5c6ef8');
+        ctx.fill();
+        ctx.strokeStyle = isDark ? '#0c0c1a' : '#ffffff';
+        ctx.lineWidth   = 2;
+        ctx.stroke();
+        ctx.restore();
 
-      // Coordinate label
-      const label = `(${v.map(x => Math.round(x * 100) / 100).join(', ')})`;
-      ctx.save();
-      ctx.font      = '10px Fira Code,monospace';
-      ctx.fillStyle = isDark ? '#aaaace' : '#3c3c60';
-      ctx.fillText(label, cx + 8, cy - 6);
-      ctx.restore();
-    });
+        // Coordinate label
+        const label = `(${v.map(x => Math.round(x * 100) / 100).join(', ')})`;
+        ctx.save();
+        ctx.font      = '10px Fira Code,monospace';
+        ctx.fillStyle = isDark ? '#aaaace' : '#3c3c60';
+        ctx.fillText(label, cx + 8, cy - 6);
+        ctx.restore();
+      });
+    }   // end else (normal vertex mode)
 
     /* Axes */
     ctx.save();
@@ -594,6 +686,9 @@ export class GraphVisualizer {
     // Face raycasting for hover highlights
     domEl.addEventListener('mousemove', e => this._onMouseMove3D(e));
     domEl.addEventListener('mouseleave', () => this._onMouseLeave3D());
+
+    // Option-point click (3D raycasting)
+    domEl.addEventListener('click', e => this._onCanvasClick3D(e));
 
     new ResizeObserver(() => this.resize()).observe(this.container);
     this._animate3D();
@@ -863,6 +958,75 @@ export class GraphVisualizer {
     }
   }
 
+  /* ─── Option-point click handlers ───────── */
+
+  _onCanvasClick2D(e) {
+    if (!this._optionMode || !this._optionPoints.length) return;
+    const rect = this._canvas2d.getBoundingClientRect();
+    const px   = e.clientX - rect.left;
+    const py   = e.clientY - rect.top;
+    for (const pt of this._optionPoints) {
+      const [cx, cy] = this._w2c(...pt);
+      if (Math.hypot(px - cx, py - cy) < 14) {
+        this._onOptionSelect?.(pt);
+        return;
+      }
+    }
+  }
+
+  _onCanvasClick3D(e) {
+    if (!this._optionMode || !this._optionSpheres.length) return;
+    const domEl = this._renderer.domElement;
+    const rect  = domEl.getBoundingClientRect();
+    const mouse = new THREE.Vector2(
+      ((e.clientX - rect.left) / rect.width)  * 2 - 1,
+      -((e.clientY - rect.top) / rect.height) * 2 + 1
+    );
+    const ray = new THREE.Raycaster();
+    ray.setFromCamera(mouse, this._camera);
+    const hits = ray.intersectObjects(this._optionSpheres.map(s => s.mesh));
+    if (hits.length) {
+      const idx = this._optionSpheres.findIndex(s => s.mesh === hits[0].object);
+      if (idx >= 0) this._onOptionSelect?.(this._optionSpheres[idx].point);
+    }
+  }
+
+  /* ─── 3D option-sphere management ─────── */
+
+  _rebuildOptionSpheres3D() {
+    this._removeOptionSpheres3D();
+    if (!this._lpGroup) return;
+
+    // Current-position sphere (gold)
+    if (this._optionCurrent) {
+      const geo = new THREE.SphereGeometry(0.28, 16, 16);
+      const mat = new THREE.MeshPhongMaterial({ color: 0xf59e0b, emissive: 0x331100, emissiveIntensity: 0.5 });
+      const s   = new THREE.Mesh(geo, mat);
+      s.position.set(...this._optionCurrent);
+      this._lpGroup.add(s);
+      this._optionSpheres.push({ mesh: s, point: null }); // null = current, not clickable
+    }
+
+    // Option-point spheres (accent color, larger + clickable)
+    this._optionPoints.forEach(pt => {
+      const geo = new THREE.SphereGeometry(0.22, 16, 16);
+      const mat = new THREE.MeshPhongMaterial({ color: 0x818cf8, emissive: 0x2222aa, emissiveIntensity: 0.4 });
+      const s   = new THREE.Mesh(geo, mat);
+      s.position.set(...pt);
+      this._lpGroup.add(s);
+      this._optionSpheres.push({ mesh: s, point: pt });
+    });
+  }
+
+  _removeOptionSpheres3D() {
+    this._optionSpheres.forEach(({ mesh }) => {
+      mesh.geometry?.dispose();
+      mesh.material?.dispose();
+      this._lpGroup?.remove(mesh);
+    });
+    this._optionSpheres = [];
+  }
+
   /* ─── Full constraint plane (3D) ─────────── */
 
   _showConstraintPlane(constraintIdx) {
@@ -966,6 +1130,7 @@ export class GraphVisualizer {
       this._panUpHandler   = null;
     } else if (this.mode === '3d') {
       if (this._animId) cancelAnimationFrame(this._animId);
+      this._removeOptionSpheres3D();
       this._hideConstraintPlane();
       if (this._up3DHandler) window.removeEventListener('mouseup', this._up3DHandler);
       this._up3DHandler = null;

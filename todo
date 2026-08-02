@@ -1,21 +1,17 @@
-- index.js appears a complete mess eventhough it works, no? I feel like things could be structured better. if u feel like, u can create or edit files to improve the code architecture.
-
-- the website should have the simplex tableau. see inspiration/layout. lp problem container should go on the very top, simplex tableau container goes on the bottom left, polyhedron container goes on the bottom middle, ocupying the biggest space, ai teacher stays exactly where it is.
-
 - the idea of the website should be students try answering what is the point simplex will go after each iteraction. so the only points to show are the options for user to click. lets call those points option points. other points are not shown in the polyhedron.
 
-- fix m1 and m2 btns to actually show mouse imgs.
+- improve the styles of option point. point to select to make a guess of direction of step of simplex
 
 - when there is no lp, instead of having a blank container, lets make the btns of generate and options there, but if it has been generated, we go back with the current styles.
 
 - fix ai teacher to only use ai model with we type on chat and only allow to ask ai teacher if user try answering first, that is, clicking the option points.
-
-- lp generator should only generate non redundant constraints.
 
 - besides "Unique Multiple Infeasible" options, we should add degenerate and unbounded. the simplex options 
 
 - make animations in graph visualizer for building the polyhedron when generate the lp problem. like constraints appearing in order and making cuts.
 
 - make animations on graph visualizer for each iteration of simplex, that is when user correctly click the option point (extreme point direction of simplex), like animating the arrow showing the direction of movement, animating the highlight btn. there can be other very cool ideas to add.
+
+- lp generator should only generate non redundant constraints.
 
 - make readme like in my other repositories.
