@@ -142,3 +142,9 @@
   color: var(--accent);
   box-shadow: var(--shadow-sm);
 }
+
+#ai-toggle-btn.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}

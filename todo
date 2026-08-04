@@ -1,8 +1,6 @@
-- the idea of the website should be students try answering what is the point simplex will go after each iteraction. so the only points to show are the options for user to click. lets call those points option points. other points are not shown in the polyhedron.
+- change next btn from ai teacher container to bottom right corner of polyhedron container
 
-- improve the styles of option point. point to select to make a guess of direction of step of simplex
-
-- when there is no lp, instead of having a blank container, lets make the btns of generate and options there, but if it has been generated, we go back with the current styles.
+- change styles of container of editing objective function or conrtaints. i want to make it simpler. clicking the pencil btn just changes the numbers in the text into inputs, instead of creating a new container. also there will be no save btn, changing the input will automatically save. clicking outside the contraint will remove the editting mode or editting style.
 
 - fix ai teacher to only use ai model with we type on chat and only allow to ask ai teacher if user try answering first, that is, clicking the option points.
 
@@ -12,6 +10,10 @@
 
 - make animations on graph visualizer for each iteration of simplex, that is when user correctly click the option point (extreme point direction of simplex), like animating the arrow showing the direction of movement, animating the highlight btn. there can be other very cool ideas to add.
 
-- lp generator should only generate non redundant constraints.
+- make styles animations, everything from 3d graph like 2d graph is, hovering styles, arrows, everything.
+
+- lp generator should only generate non redundant constraints. also, coeficients are always positive, lets increase the range of coeficients to negative values
 
 - make readme like in my other repositories.
+
+- bubble message in ai teacher btn saying that it can ask for any questions.

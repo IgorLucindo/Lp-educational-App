@@ -5,6 +5,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>LP Teacher</title>
+  <link rel="icon" href="website/assets/images/robot_icon.svg" />
   <link rel="stylesheet" href="website/css/vars.css" />
   <link rel="stylesheet" href="website/css/styles.css" />
   <link rel="stylesheet" href="website/css/header.css" />
@@ -48,6 +49,9 @@
     <div class="header-spacer"></div>
 
     <div class="header-actions">
+      <button id="ai-toggle-btn" class="theme-btn" aria-label="AI Teacher">
+        <i class="fas fa-robot"></i>
+      </button>
       <button id="theme-toggle" class="theme-btn" aria-label="Toggle theme">
         <i class="fas fa-moon"></i>
       </button>
@@ -55,9 +59,12 @@
   </header>
 
     <!-- ── MAIN GRID ── -->
-  <div class="main-grid">
+  <div class="main-grid lp-empty">
 
-    <!-- ── LP PROBLEM (top, spans cols 1-2) ── -->
+    <!-- ── LEFT STACK: LP problem + Simplex Tableau ── -->
+    <div class="left-stack lp-empty">
+
+    <!-- ── LP PROBLEM ── -->
     <aside class="lp-area">
       <div class="panel lp-display-panel">
         <div class="panel-header">
@@ -102,27 +109,26 @@
       </div>
     </aside>
 
-    <!-- ── SIMPLEX TABLEAU (bottom-left) ── -->
+    <!-- ── SIMPLEX TABLEAU ── -->
     <section class="tableau-area">
       <div class="panel tableau-panel">
         <div class="panel-header">
           <span class="panel-title"><i class="fas fa-table"></i> Simplex Tableau</span>
-          <span class="panel-subtitle">What the math says</span>
         </div>
-        <div class="panel-body tableau-body" id="tableau-container">
-          <div class="tableau-empty">
-            <i class="fas fa-table"></i>
-            <p>Generate an LP to see the simplex tableau.</p>
+        <div class="tableau-body-clip">
+          <div class="panel-body tableau-body" id="tableau-container">
           </div>
         </div>
       </div>
     </section>
 
-    <!-- ── POLYHEDRON (spans both rows, center) ── -->
+    </div><!-- /left-stack -->
+
+    <!-- ── POLYHEDRON (center, spans full height) ── -->
     <section class="poly-area">
       <div class="panel viz-panel">
         <div class="panel-header">
-          <span class="panel-title"><i class="fas fa-cube"></i> Polyhedron</span>
+          <span class="panel-title"><i class="fas fa-cube"></i><span class="viz-title-text"> Polyhedron</span></span>
           <div class="viz-header-actions">
             <span class="viz-hint" id="viz-hint">Generate an LP to visualize</span>
             <button class="btn-icon tooltip-wrap" id="viz-reset-btn" data-tip="Reset view">
@@ -136,8 +142,10 @@
       </div>
     </section>
 
-    <!-- ── AI TEACHER (full height, right) ── -->
-    <aside class="ai-area">
+  </div><!-- /main-grid -->
+
+  <!-- ── AI TEACHER FLOAT PANEL ── -->
+  <aside class="ai-float" id="ai-float">
       <div class="panel ai-panel">
         <div class="panel-header">
           <span class="panel-title">AI Teacher</span>
@@ -166,9 +174,7 @@
           </button>
         </div>
       </div>
-    </aside>
-
-  </div><!-- /main-grid -->
+  </aside>
 
   <!-- Scripts -->
   <script src="website/src/utils/toggleTheme.js"></script>

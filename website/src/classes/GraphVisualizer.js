@@ -160,6 +160,12 @@ export class GraphVisualizer {
     this._optionPoints     = [];     // clickable candidate vertices
     this._onOptionSelect   = null;   // (point) => void
     this._optionSpheres    = [];     // Three.js meshes for 3D option points
+    this._animFrame2D      = null;   // rAF id for 2D animation loop
+    this._hoveredOptIdx    = -1;     // index into _optionPoints for hover highlight
+    this._hoverPulseStart  = 0;      // timestamp when current hover began (for pulse)
+    this._clickAnimIdx     = -1;     // index of last clicked option point
+    this._clickAnimStart   = 0;
+    this._clickAnimEnd     = 0;
 
     // 2D state
     this._canvas2d  = null;
@@ -272,11 +278,35 @@ export class GraphVisualizer {
     this._optionCurrent = null;
     this._optionPoints  = [];
     this._onOptionSelect = null;
+    this._hoveredOptIdx  = -1;
+    this._clickAnimIdx   = -1;
     if (this.mode === '2d') {
+      this._stopAnim2D();
       this._draw2D();
+      if (this._canvas2d) this._canvas2d.style.cursor = '';
     } else if (this.mode === '3d') {
       this._removeOptionSpheres3D();
     }
+  }
+
+  // Runs a short animation loop for click ripple; stops automatically when done.
+  _startAnim2D() {
+    if (this._animFrame2D) return;
+    const loop = () => {
+      this._draw2D();
+      if (performance.now() < this._clickAnimEnd || this._hoveredOptIdx >= 0) {
+        this._animFrame2D = requestAnimationFrame(loop);
+      } else {
+        this._animFrame2D = null;
+        this._clickAnimIdx = -1;
+        this._draw2D();
+      }
+    };
+    this._animFrame2D = requestAnimationFrame(loop);
+  }
+
+  _stopAnim2D() {
+    if (this._animFrame2D) { cancelAnimationFrame(this._animFrame2D); this._animFrame2D = null; }
   }
 
   resetView() {
@@ -372,8 +402,8 @@ export class GraphVisualizer {
     const pts = this.vertices.length > 0 ? this.vertices : [[0, 0], [10, 10]];
     const maxX = Math.max(...pts.map(p => p[0]), 5);
     const maxY = Math.max(...pts.map(p => p[1]), 5);
-    const W    = this.container.clientWidth  - 70;
-    const H    = this.container.clientHeight - 70;
+    const W    = Math.max(50, this.container.clientWidth  - 70);
+    const H    = Math.max(50, this.container.clientHeight - 70);
     this._scale   = Math.min(W / maxX, H / maxY) * 0.85;
     this._originX = 50;
     this._originY = this.container.clientHeight - 40;
@@ -389,6 +419,7 @@ export class GraphVisualizer {
 
   _draw2D() {
     if (!this._canvas2d || !this._ctx) return;
+    if (this._scale <= 0) return; // container too small
     const ctx = this._ctx;
     const W   = this.container.clientWidth;
     const H   = this.container.clientHeight;
@@ -472,8 +503,21 @@ export class GraphVisualizer {
       }
     });
 
-    /* Simplex path */
-    if (this.path.length > 1) {
+    /* Axes — drawn before vertices so dots render on top of axis lines */
+    ctx.save();
+    ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,20,0.3)';
+    ctx.lineWidth   = 1.5;
+    const [ox, oy] = this._w2c(0, 0);
+    ctx.beginPath(); ctx.moveTo(ox, 0); ctx.lineTo(ox, H); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, oy); ctx.lineTo(W, oy); ctx.stroke();
+    ctx.fillStyle = isDark ? '#6868a8' : '#9a9abc';
+    ctx.font = '12px Inter,sans-serif';
+    ctx.fillText(this.lp.variables[0], W - 20, oy - 5);
+    ctx.fillText(this.lp.variables[1], ox + 5, 15);
+    ctx.restore();
+
+    /* Simplex path — hidden in option mode so the route doesn't reveal the answer */
+    if (this.path.length > 1 && !this._optionMode) {
       ctx.save();
       ctx.strokeStyle = isDark ? '#fbbf24' : '#d97706';
       ctx.lineWidth   = 2;
@@ -485,19 +529,21 @@ export class GraphVisualizer {
       ctx.stroke();
       ctx.restore();
 
-      // Arrowheads
-      this.path.forEach((pt, idx) => {
-        if (idx === 0) return;
-        const prev = this.path[idx - 1];
-        const [x1,y1] = this._w2c(...prev);
-        const [x2,y2] = this._w2c(...pt);
-        this._drawArrow2D(ctx, x1, y1, x2, y2, isDark ? '#fbbf24' : '#d97706');
-      });
+      // Arrowheads — hidden in option mode so the user must guess the direction
+      if (!this._optionMode) {
+        this.path.forEach((pt, idx) => {
+          if (idx === 0) return;
+          const prev = this.path[idx - 1];
+          const [x1,y1] = this._w2c(...prev);
+          const [x2,y2] = this._w2c(...pt);
+          this._drawArrow2D(ctx, x1, y1, x2, y2, isDark ? '#fbbf24' : '#d97706');
+        });
+      }
     }
 
     /* Vertices — option-points mode shows only current + options; normal shows all */
     if (this._optionMode) {
-      // Current vertex
+      // Current vertex (gold dot, no "you are here" text — user guesses the next direction)
       if (this._optionCurrent) {
         const [cx, cy] = this._w2c(...this._optionCurrent);
         ctx.save();
@@ -513,37 +559,96 @@ export class GraphVisualizer {
         ctx.save();
         ctx.font      = 'bold 10px Fira Code,monospace';
         ctx.fillStyle = isDark ? '#fbbf24' : '#d97706';
-        ctx.fillText('you are here  ' + lbl, cx + 10, cy - 6);
+        ctx.fillText(lbl, cx + 10, cy - 6);
         ctx.restore();
       }
+
+      // Sine-wave pulse factor for hovered option point (scale + glow + arrow alpha)
+      let hoverPulse = 0;
+      if (this._hoveredOptIdx >= 0) {
+        const elapsed = performance.now() - this._hoverPulseStart;
+        hoverPulse = 0.5 + 0.5 * Math.sin((elapsed / 1500) * Math.PI * 2); // 0..1, 900ms period
+      }
+
+      // Hover preview arrow (semi-transparent, from current to hovered option point)
+      if (this._hoveredOptIdx >= 0 && this._optionCurrent && this._optionPoints[this._hoveredOptIdx]) {
+        const hPt = this._optionPoints[this._hoveredOptIdx];
+        const [ax1, ay1] = this._w2c(...this._optionCurrent);
+        const [ax2, ay2] = this._w2c(...hPt);
+        const arrowAlpha = 0.5 + hoverPulse * 0.4;
+        ctx.save();
+        ctx.globalAlpha = arrowAlpha;
+        ctx.strokeStyle = isDark ? '#818cf8' : '#5c6ef8';
+        ctx.lineWidth   = 2;
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath();
+        ctx.moveTo(ax1, ay1);
+        ctx.lineTo(ax2, ay2);
+        ctx.stroke();
+        ctx.restore();
+        ctx.save();
+        ctx.globalAlpha = arrowAlpha;
+        this._drawArrow2D(ctx, ax1, ay1, ax2, ay2, isDark ? '#818cf8' : '#5c6ef8');
+        ctx.restore();
+      }
+
       // Option points (clickable)
       this._optionPoints.forEach((v, i) => {
         const [cx, cy] = this._w2c(...v);
         if (cx < -10 || cx > W + 10 || cy < -10 || cy > H + 10) return;
-        // Pulsing ring
+
+        const isHovered = i === this._hoveredOptIdx;
+        const radius = isHovered ? (9 + hoverPulse * 1) : 9; // 9..12
+
+        // Click ripple
+        if (i === this._clickAnimIdx && performance.now() < this._clickAnimEnd) {
+          const progress = (performance.now() - this._clickAnimStart) / (this._clickAnimEnd - this._clickAnimStart);
+          ctx.save();
+          ctx.globalAlpha = 0.65 * (1 - progress);
+          ctx.beginPath();
+          ctx.arc(cx, cy, 9 + 24 * progress, 0, Math.PI * 2);
+          ctx.strokeStyle = isDark ? '#818cf8' : '#5c6ef8';
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        const glowBlur = isHovered ? (6 + hoverPulse * 14) : 6; // 6..20
         ctx.save();
+        ctx.shadowBlur  = glowBlur;
+        ctx.globalAlpha = isHovered ? (0.8 + hoverPulse * 0.2) : 1; // 0.8..1.0
         ctx.beginPath();
-        ctx.arc(cx, cy, 13, 0, Math.PI * 2);
-        ctx.strokeStyle = isDark ? 'rgba(129,140,248,0.45)' : 'rgba(92,110,248,0.3)';
-        ctx.lineWidth   = 2;
-        ctx.stroke();
-        ctx.restore();
-        // Dot
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(cx, cy, 7, 0, Math.PI * 2);
-        ctx.fillStyle   = isDark ? '#818cf8' : '#5c6ef8';
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        ctx.fillStyle = isHovered
+          ? (isDark ? '#a5b4fc' : '#4a5ae6')
+          : (isDark ? '#818cf8' : '#5c6ef8');
         ctx.fill();
-        ctx.strokeStyle = isDark ? '#e8e8ff' : '#fff';
-        ctx.lineWidth   = 2;
+        ctx.restore();
+
+        // Border
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        ctx.strokeStyle = isDark ? 'rgba(232,232,255,0.9)' : '#ffffff';
+        ctx.lineWidth   = 1.5;
         ctx.stroke();
         ctx.restore();
-        // Label
+
+        // "?" label
+        ctx.save();
+        ctx.font         = `bold ${isHovered ? 10 : 8}px Inter,sans-serif`;
+        ctx.fillStyle    = '#ffffff';
+        ctx.textAlign    = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('?', cx, cy);
+        ctx.restore();
+
+        // Coordinate label
         const lbl = `(${v.map(x => Math.round(x * 100) / 100).join(', ')})`;
         ctx.save();
-        ctx.font      = '10px Fira Code,monospace';
+        ctx.font      = `${isHovered ? 'bold ' : ''}10px Fira Code,monospace`;
         ctx.fillStyle = isDark ? '#818cf8' : '#5c6ef8';
-        ctx.fillText(lbl, cx + 9, cy - 6);
+        ctx.globalAlpha = isHovered ? 1 : 0.8;
+        ctx.fillText(lbl, cx + (isHovered ? 15 : 12), cy - 8);
         ctx.restore();
       });
     } else {
@@ -573,21 +678,6 @@ export class GraphVisualizer {
         ctx.restore();
       });
     }   // end else (normal vertex mode)
-
-    /* Axes */
-    ctx.save();
-    ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,20,0.3)';
-    ctx.lineWidth   = 1.5;
-    const [ox, oy] = this._w2c(0, 0);
-    ctx.beginPath(); ctx.moveTo(ox, 0); ctx.lineTo(ox, H); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(0, oy); ctx.lineTo(W, oy); ctx.stroke();
-
-    // Axis labels
-    ctx.fillStyle = isDark ? '#6868a8' : '#9a9abc';
-    ctx.font = '12px Inter,sans-serif';
-    ctx.fillText(this.lp.variables[0], W - 20, oy - 5);
-    ctx.fillText(this.lp.variables[1], ox + 5, 15);
-    ctx.restore();
   }
 
   _drawArrow2D(ctx, x1, y1, x2, y2, color) {
@@ -869,6 +959,34 @@ export class GraphVisualizer {
     const px = e.clientX - rect.left;
     const py = e.clientY - rect.top;
 
+    if (this._optionMode) {
+      // Track option-point hover for cursor + preview arrow; still allow constraint hover below
+      let newOptIdx = -1;
+      this._optionPoints.forEach((pt, i) => {
+        const [cx, cy] = this._w2c(...pt);
+        if (Math.hypot(px - cx, py - cy) < 20) newOptIdx = i;
+      });
+      if (newOptIdx !== this._hoveredOptIdx) {
+        this._hoveredOptIdx = newOptIdx;
+        this._canvas2d.classList.toggle('opt-hover', newOptIdx >= 0);
+        // Clear any active constraint hover when the cursor enters an option point
+        if (newOptIdx >= 0 && this._hoveredFaceIdx2D !== null) {
+          const old2d = this._hoveredFaceIdx2D;
+          this._hoveredFaceIdx2D = null;
+          this.clearHighlight(old2d);
+          this._onConstraintHover?.(old2d, false);
+        }
+        if (newOptIdx >= 0) {
+          this._hoverPulseStart = performance.now();
+          this._startAnim2D();
+        }
+        this._draw2D();
+      }
+      if (this._hoveredOptIdx >= 0) return; // option point blocks constraint hover
+    } else {
+      this._canvas2d.classList.remove('opt-hover');
+    }
+
     let newIdx = null;
     this.lp.constraints.forEach((con, i) => {
       if (this._distToLine2D(con, px, py) < 9) newIdx = i + 1;
@@ -888,6 +1006,11 @@ export class GraphVisualizer {
   }
 
   _onMouseLeave2D() {
+    if (this._canvas2d) this._canvas2d.classList.remove('opt-hover');
+    if (this._hoveredOptIdx >= 0) {
+      this._hoveredOptIdx = -1;
+      this._draw2D();
+    }
     if (this._hoveredFaceIdx2D !== null) {
       this.clearHighlight(this._hoveredFaceIdx2D);
       this._onConstraintHover?.(this._hoveredFaceIdx2D, false);
@@ -930,6 +1053,16 @@ export class GraphVisualizer {
     ray.setFromCamera(mouse, this._camera);
     const hits = ray.intersectObjects(this._faceMeshes.map(f => f.mesh));
 
+    // Option-sphere cursor in 3D
+    if (this._optionMode && this._optionSpheres.length) {
+      const optHits = ray.intersectObjects(
+        this._optionSpheres.filter(s => s.point !== null).map(s => s.mesh)
+      );
+      domEl.style.cursor = optHits.length ? 'pointer' : '';
+    } else {
+      domEl.style.cursor = '';
+    }
+
     let newIdx = null;
     if (hits.length) {
       const hit  = hits[0].object;
@@ -951,6 +1084,7 @@ export class GraphVisualizer {
   }
 
   _onMouseLeave3D() {
+    if (this._renderer) this._renderer.domElement.style.cursor = '';
     if (this._hoveredFaceIdx !== null) {
       this.clearHighlight(this._hoveredFaceIdx);
       this._onConstraintHover?.(this._hoveredFaceIdx, false);
@@ -965,12 +1099,18 @@ export class GraphVisualizer {
     const rect = this._canvas2d.getBoundingClientRect();
     const px   = e.clientX - rect.left;
     const py   = e.clientY - rect.top;
-    for (const pt of this._optionPoints) {
+    const idx  = this._optionPoints.findIndex(pt => {
       const [cx, cy] = this._w2c(...pt);
-      if (Math.hypot(px - cx, py - cy) < 14) {
-        this._onOptionSelect?.(pt);
-        return;
-      }
+      return Math.hypot(px - cx, py - cy) < 20;
+    });
+    if (idx >= 0) {
+      const pt = this._optionPoints[idx]; // capture before state changes
+      this._clickAnimIdx   = idx;
+      this._clickAnimStart = performance.now();
+      this._clickAnimEnd   = this._clickAnimStart + 380;
+      this._startAnim2D();
+      // Delay callback so the ripple animation plays before the state is cleared
+      setTimeout(() => this._onOptionSelect?.(pt), 380);
     }
   }
 
@@ -1120,6 +1260,7 @@ export class GraphVisualizer {
 
   _cleanup() {
     if (this.mode === '2d') {
+      this._stopAnim2D();
       this._canvas2d?.remove();
       this._canvas2d = null;
       this._ctx      = null;

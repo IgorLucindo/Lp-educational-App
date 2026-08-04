@@ -7,25 +7,80 @@
   margin-top: var(--header-h);
   display: grid;
   /*
-   * Columns: LP/Tableau (fixed) | Polyhedron (flex) | AI (fixed)
-   * Rows:    LP problem (auto) | Tableau+Poly (fill remaining)
+   * Columns: left-stack (fixed) | Polyhedron (fills remaining, AI overlays it)
+   * Single row — left column manages LP/Tableau internally as a flex column
    */
-  grid-template-columns: 290px 1fr 320px;
-  grid-template-rows: auto 1fr;
-  grid-template-areas:
-    "lp   poly  ai"
-    "tab  poly  ai";
+  grid-template-columns: 290px 1fr;
+  grid-template-rows: 1fr;
+  grid-template-areas: "left poly";
   gap: 10px;
   padding: 10px 10px 14px;
   height: calc(100vh - var(--header-h));
   overflow: hidden;
 }
 
+/* ── LP + Tableau flex column ── */
+.left-stack {
+  grid-area: left;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: hidden;
+  min-height: 0;
+}
+
 /* ── Grid area assignments ── */
-.lp-area      { grid-area: lp;  display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
-.tableau-area { grid-area: tab; display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
-.poly-area    { grid-area: poly; display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
-.ai-area      { grid-area: ai;  display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
+.lp-area {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+  flex: 1;   /* always fill remaining height left by the tableau */
+}
+.tableau-area {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex: none;
+}
+/* grid-template-rows: 0fr→1fr via animation (not transition) because the global
+   body.enable-transition * rule applies transition:…!important, blocking any transition override */
+@keyframes tableau-expand {
+  from { grid-template-rows: 0fr; }
+  to   { grid-template-rows: 1fr; }
+}
+.left-stack .tableau-body-clip {
+  display: grid;
+  grid-template-rows: 0fr;
+  overflow: hidden;
+}
+.left-stack:not(.lp-empty) .tableau-body-clip {
+  grid-template-rows: 1fr;
+  animation: tableau-expand 0.48s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+.poly-area    { grid-area: poly; display: flex; flex-direction: column; overflow: hidden; min-height: 0; min-width: 0; }
+
+/* Poly column starts thin (just cube icon), expands when LP is generated.
+   fr→fr is interpolatable in CSS; calc()/px vs fr is not. */
+@keyframes poly-expand {
+  from { grid-template-columns: 960fr 40fr; }
+  to   { grid-template-columns: 232fr 768fr; }
+}
+/* empty: left fills everything, poly is a ~50px sliver */
+.main-grid.lp-empty {
+  grid-template-columns: 960fr 40fr;
+}
+/* after generate: animate to normal proportions (232/768 ≈ 290px/960px at 1260px viewport) */
+.main-grid:not(.lp-empty) {
+  animation: poly-expand 0.5s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+/* Centre the lp-start hero vertically when the panel is tall */
+.left-stack.lp-empty .lp-panel-body {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
 
 /* Legacy column classes kept for backward compat */
 .left-col, .right-col, .center-col {
@@ -49,6 +104,9 @@
   min-height: 0;
   overflow-y: auto;
 }
+
+/* Hide header buttons in the LP panel when no LP is generated yet */
+.left-stack.lp-empty .lp-header-btns { display: none; }
 
 /* LP header action buttons */
 .lp-header-btns {
@@ -98,21 +156,69 @@
 .lp-start {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
   padding: 4px 0;
+}
+
+.lp-start-hero {
+  text-align: center;
+  padding: 18px 12px 14px;
+  background: var(--accent-light);
+  border-radius: var(--r-md);
+  border: 1px solid rgba(92, 110, 248, 0.25);
+}
+.dark-theme .lp-start-hero {
+  border-color: rgba(129, 140, 248, 0.2);
+}
+
+.lp-start-icon {
+  font-size: 1.8rem;
+  color: var(--accent);
+  margin-bottom: 8px;
+  filter: drop-shadow(0 2px 8px rgba(92, 110, 248, 0.4));
+}
+
+.lp-start-title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--text-h);
+  letter-spacing: -0.01em;
+  margin-bottom: 5px;
+}
+
+.lp-start-sub {
+  font-size: 0.72rem;
+  color: var(--text-sub);
+  line-height: 1.5;
 }
 
 .lp-start-gen {
   width: 100%;
   justify-content: center;
-  padding: 10px;
+  padding: 12px;
   font-size: 0.9rem;
+  background: var(--accent-grad);
+  border-radius: var(--r-md);
+  box-shadow: 0 4px 14px rgba(92, 110, 248, 0.35);
+  letter-spacing: 0.01em;
+}
+.lp-start-gen:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(92, 110, 248, 0.5);
+  background: var(--accent-grad);
+}
+.dark-theme .lp-start-gen {
+  box-shadow: 0 4px 14px rgba(129, 140, 248, 0.3);
 }
 
 .lp-start-opts {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--bg-surface);
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
 }
 
 /* LP content when generated */
@@ -350,12 +456,19 @@
 .tableau-panel { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 
 .tableau-body {
-  flex: 1;
   min-height: 0;
   overflow: auto;
   padding: 8px 10px !important;
   display: flex;
   flex-direction: column;
+  opacity: 1;
+  transition: opacity 0.3s ease 0.18s;
+}
+/* Tableau body fades in after the panel expands; hidden when LP is absent */
+.left-stack.lp-empty .tableau-body {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
 }
 
 .tableau-empty {
@@ -442,8 +555,11 @@
    VISUALIZER
    ═══════════════════════════════════════════ */
 
-.viz-panel { flex: 1; min-height: 0; }  /* fills full poly-area */
+.viz-panel { flex: 1; min-height: 0; overflow: hidden; }  /* fills full poly-area */
 
+/* In empty state: show only the cube icon in the header (hide text and actions) */
+.main-grid.lp-empty .viz-title-text     { display: none; }
+.main-grid.lp-empty .viz-header-actions { display: none; }
 .viz-header-actions {
   display: flex;
   align-items: center;
@@ -499,10 +615,51 @@
 /* Grab/grabbing cursor for both 2D canvas and 3D renderer canvas */
 .viz-grab    { cursor: grab !important; }
 .viz-grabbing { cursor: grabbing !important; }
+/* Pointer cursor when hovering a clickable option point — beats grab !important */
+.viz-body canvas.opt-hover { cursor: pointer !important; }
 
 /* ═══════════════════════════════════════════
    AI TEACHER
    ═══════════════════════════════════════════ */
+
+/* Float panel overlay */
+@keyframes ai-float-in {
+  from { opacity: 0; transform: translateX(18px) scale(0.97); }
+  to   { opacity: 1; transform: translateX(0)    scale(1); }
+}
+@keyframes ai-float-out {
+  from { opacity: 1; transform: translateX(0)    scale(1); }
+  to   { opacity: 0; transform: translateX(18px) scale(0.97); }
+}
+.ai-float {
+  position: fixed;
+  top: calc(var(--header-h) + 10px);
+  right: 10px;
+  bottom: 14px;
+  width: 330px;
+  z-index: 150;
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
+  visibility: hidden;
+}
+.ai-float.open {
+  visibility: visible;
+  pointer-events: all;
+  animation: ai-float-in 0.22s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+.ai-float.closing {
+  visibility: visible;
+  pointer-events: none;
+  animation: ai-float-out 0.18s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+.ai-float .ai-panel {
+  flex: 1;
+  min-height: 0;
+  border-radius: var(--r-panel);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.22), 0 3px 10px rgba(0,0,0,0.14);
+  border: 1.5px solid var(--border);
+}
 
 .ai-panel { flex: 1; min-height: 0; }
 

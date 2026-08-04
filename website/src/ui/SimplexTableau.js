@@ -74,11 +74,7 @@ export class SimplexTableau {
 
   _showEmpty() {
     if (!this.container) return;
-    this.container.innerHTML = `
-      <div class="tableau-empty">
-        <i class="fas fa-table"></i>
-        <p>Generate an LP to see the simplex tableau.</p>
-      </div>`;
+    this.container.innerHTML = '';
   }
 }
 

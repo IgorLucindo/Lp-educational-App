@@ -16,6 +16,7 @@ export class LPPanel {
     this._onGenerate   = onGenerate ?? (() => {});
     this._lp           = null;
     this._result       = null;
+    this._render(); // show empty state on page load
   }
 
   /* ── Public API ── */
@@ -35,8 +36,13 @@ export class LPPanel {
       const selSol = (v) => s.solutionType === v   ? 'selected' : '';
       this.bodyEl.innerHTML = `
         <div class="lp-start">
+          <div class="lp-start-hero">
+            <div class="lp-start-icon"><i class="fas fa-chart-line"></i></div>
+            <div class="lp-start-title">Linear Programming</div>
+            <div class="lp-start-sub">Choose your settings, generate a problem, then guide simplex step by step.</div>
+          </div>
           <button class="btn btn-generate lp-start-gen" id="lp-body-gen">
-            <i class="fas fa-bolt"></i> Generate LP
+            <i class="fas fa-bolt"></i> Generate LP Problem
           </button>
           <div class="lp-start-opts">
             <div class="ctrl-group">

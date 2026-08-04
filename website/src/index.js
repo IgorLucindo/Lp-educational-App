@@ -67,6 +67,34 @@ const vizResetBtn      = document.getElementById('viz-reset-btn');
 const vizHint          = document.getElementById('viz-hint');
 const constraintCount  = document.getElementById('constraint-count');
 const ccLabel          = document.getElementById('constraint-count-val');
+const aiToggleBtn      = document.getElementById('ai-toggle-btn');
+const aiFloat          = document.getElementById('ai-float');
+
+/* ══════════════════════════════════════════
+   AI TEACHER TOGGLE
+   ══════════════════════════════════════════ */
+let _aiFloatOpen = false;
+aiToggleBtn?.addEventListener('click', () => {
+  if (_aiFloatOpen) {
+    aiFloat?.classList.add('closing');
+    aiToggleBtn?.classList.remove('active');
+    setTimeout(() => { aiFloat?.classList.remove('open', 'closing'); _aiFloatOpen = false; }, 200);
+  } else {
+    aiFloat?.classList.add('open');
+    aiToggleBtn?.classList.add('active');
+    _aiFloatOpen = true;
+  }
+});
+
+/* Close AI float when clicking outside of it */
+document.addEventListener('click', (e) => {
+  if (_aiFloatOpen && aiFloat && aiToggleBtn
+      && !aiFloat.contains(e.target) && !aiToggleBtn.contains(e.target)) {
+    aiFloat.classList.add('closing');
+    aiToggleBtn.classList.remove('active');
+    setTimeout(() => { aiFloat.classList.remove('open', 'closing'); _aiFloatOpen = false; }, 200);
+  }
+});
 
 /* ══════════════════════════════════════════
    OPTIONS PANEL
@@ -128,7 +156,13 @@ function handleLPChanged(newLP) {
    After any (re)solve — update all panels
    ══════════════════════════════════════════ */
 function afterSolve() {
+  const leftStack = document.querySelector('.left-stack');
+  const mainGrid  = document.querySelector('.main-grid');
+
+  // Render content first while lp-empty still clips the tableau to 46px,
+  // then remove lp-empty so the max-height transition reveals the content.
   lpPanel.render(currentLP, currentResult);
+  tableau.render(solver, 0);
 
   if (vizHint) {
     const m1 = `<img class="mouse-btn-img" src="website/assets/images/m1_key.svg" alt="M1">`;
@@ -138,7 +172,8 @@ function afterSolve() {
       : `${m1} hold to rotate &nbsp;&middot;&nbsp; ${m2} hold to pan`;
   }
 
-  tableau.render(solver, 0);
+  leftStack?.classList.remove('lp-empty');
+  mainGrid?.classList.remove('lp-empty');
 
   const path = solver.status === 'optimal' ? solver.getVertexPath() : [];
   visualizer.setLP(currentLP, path);
