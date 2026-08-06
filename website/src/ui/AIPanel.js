@@ -30,8 +30,6 @@ export class AIPanel {
     this._aiMessages    = document.getElementById('ai-messages');
     this._aiInput       = document.getElementById('ai-input');
     this._aiSendBtn     = document.getElementById('ai-send');
-    this._explainBtn    = document.getElementById('explain-next-btn');
-
     this._locked        = false;
     this._hasAnswered   = false;
     this._solver        = null;
@@ -140,18 +138,6 @@ export class AIPanel {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this._sendUserMessage(); }
     });
     this._aiInput?.addEventListener('input', () => autoResize(this._aiInput));
-
-    this._explainBtn?.addEventListener('click', async () => {
-      if (this._locked) return;
-      const iters = this._solver?.iterations ?? [];
-      if (!iters.length || this._explainStep >= iters.length) return;
-
-      const step = this._explainStep;
-      this._onExplainClick?.(step);   // let orchestrator update visualizer etc.
-      this._explainStep++;
-      this.updateExplainBtn();
-      await this.explainIteration(step);
-    });
   }
 
   /* ── Internal send helpers ── */
@@ -198,8 +184,7 @@ export class AIPanel {
 
   _setLocked(val) {
     this._locked = val;
-    if (this._aiSendBtn)  this._aiSendBtn.disabled = val || !this._hasAnswered;
-    if (this._explainBtn) this._explainBtn.disabled = val || (this._explainStep >= (this._solver?.iterations?.length ?? 0));
+    if (this._aiSendBtn) this._aiSendBtn.disabled = val || !this._hasAnswered;
   }
 
   _appendExplainMarker(iter) {

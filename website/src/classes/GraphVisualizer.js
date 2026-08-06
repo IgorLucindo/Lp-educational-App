@@ -163,9 +163,14 @@ export class GraphVisualizer {
     this._animFrame2D      = null;   // rAF id for 2D animation loop
     this._hoveredOptIdx    = -1;     // index into _optionPoints for hover highlight
     this._hoverPulseStart  = 0;      // timestamp when current hover began (for pulse)
-    this._clickAnimIdx     = -1;     // index of last clicked option point
+    this._clickAnimIdx     = -1;
     this._clickAnimStart   = 0;
     this._clickAnimEnd     = 0;
+    this._wrongAnimIdx     = -1;
+    this._wrongAnimStart   = 0;
+    this._wrongAnimEnd     = 0;
+    this._lastMovePt       = null;
+    this._visitedPath      = [];    // path vertices visited so far, drawn in green
 
     // 2D state
     this._canvas2d  = null;
@@ -260,11 +265,12 @@ export class GraphVisualizer {
    * Enter option-points mode: only the current vertex and the provided
    * option points are visible.  Clicking an option point fires onSelect(point).
    */
-  setOptionPoints(currentPt, optionPoints, onSelect) {
+  setOptionPoints(currentPt, optionPoints, onSelect, visitedPath = []) {
     this._optionMode     = true;
     this._optionCurrent  = currentPt;
     this._optionPoints   = optionPoints;
     this._onOptionSelect = onSelect;
+    this._visitedPath    = visitedPath;
     if (this.mode === '2d') {
       this._draw2D();
     } else if (this.mode === '3d') {
@@ -280,6 +286,10 @@ export class GraphVisualizer {
     this._onOptionSelect = null;
     this._hoveredOptIdx  = -1;
     this._clickAnimIdx   = -1;
+    this._wrongAnimIdx   = -1;
+    this._wrongAnimEnd   = 0;
+    this._lastMovePt     = null;
+    this._visitedPath    = [];
     if (this.mode === '2d') {
       this._stopAnim2D();
       this._draw2D();
@@ -294,11 +304,12 @@ export class GraphVisualizer {
     if (this._animFrame2D) return;
     const loop = () => {
       this._draw2D();
-      if (performance.now() < this._clickAnimEnd || this._hoveredOptIdx >= 0) {
+      if (performance.now() < this._clickAnimEnd || this._hoveredOptIdx >= 0 || performance.now() < this._wrongAnimEnd) {
         this._animFrame2D = requestAnimationFrame(loop);
       } else {
         this._animFrame2D = null;
         this._clickAnimIdx = -1;
+        this._wrongAnimIdx = -1;
         this._draw2D();
       }
     };
@@ -307,6 +318,18 @@ export class GraphVisualizer {
 
   _stopAnim2D() {
     if (this._animFrame2D) { cancelAnimationFrame(this._animFrame2D); this._animFrame2D = null; }
+  }
+
+  /** Flash a wrong-click animation on the given option point (2D). */
+  flashWrongOptionPoint(pt) {
+    const idx = this._optionPoints.findIndex(p =>
+      p.length === pt.length && p.every((v, j) => Math.abs(v - pt[j]) < 1e-6)
+    );
+    if (idx < 0) return;
+    this._wrongAnimIdx   = idx;
+    this._wrongAnimStart = performance.now();
+    this._wrongAnimEnd   = this._wrongAnimStart + 600;
+    this._startAnim2D();
   }
 
   resetView() {
@@ -543,13 +566,13 @@ export class GraphVisualizer {
 
     /* Vertices — option-points mode shows only current + options; normal shows all */
     if (this._optionMode) {
-      // Current vertex (gold dot, no "you are here" text — user guesses the next direction)
+      // Current vertex — green dot
       if (this._optionCurrent) {
         const [cx, cy] = this._w2c(...this._optionCurrent);
         ctx.save();
         ctx.beginPath();
         ctx.arc(cx, cy, 8, 0, Math.PI * 2);
-        ctx.fillStyle   = isDark ? '#fbbf24' : '#d97706';
+        ctx.fillStyle   = isDark ? '#4ade80' : '#16a34a';
         ctx.fill();
         ctx.strokeStyle = isDark ? '#0c0c1a' : '#fff';
         ctx.lineWidth   = 2;
@@ -558,9 +581,44 @@ export class GraphVisualizer {
         const lbl = `(${this._optionCurrent.map(x => Math.round(x * 100) / 100).join(', ')})`;
         ctx.save();
         ctx.font      = 'bold 10px Fira Code,monospace';
-        ctx.fillStyle = isDark ? '#fbbf24' : '#d97706';
+        ctx.fillStyle = isDark ? '#4ade80' : '#16a34a';
         ctx.fillText(lbl, cx + 10, cy - 6);
         ctx.restore();
+      }
+
+      // Green segments + past vertices for all correctly traversed moves
+      if (this._visitedPath.length >= 2) {
+        const green = isDark ? '#4ade80' : '#16a34a';
+        // Lines
+        ctx.save();
+        ctx.strokeStyle = green;
+        ctx.lineWidth   = 2;
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath();
+        const [p0x, p0y] = this._w2c(...this._visitedPath[0]);
+        ctx.moveTo(p0x, p0y);
+        for (let k = 1; k < this._visitedPath.length; k++) {
+          const [pkx, pky] = this._w2c(...this._visitedPath[k]);
+          ctx.lineTo(pkx, pky);
+        }
+        ctx.stroke();
+        ctx.restore();
+        // Arrows on each segment
+        for (let k = 1; k < this._visitedPath.length; k++) {
+          const [ax1, ay1] = this._w2c(...this._visitedPath[k - 1]);
+          const [ax2, ay2] = this._w2c(...this._visitedPath[k]);
+          this._drawArrow2D(ctx, ax1, ay1, ax2, ay2, green);
+        }
+        // Past vertex dots (all except the last, which is the current green dot)
+        for (let k = 0; k < this._visitedPath.length - 1; k++) {
+          const [vx, vy] = this._w2c(...this._visitedPath[k]);
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(vx, vy, 5, 0, Math.PI * 2);
+          ctx.fillStyle = green;
+          ctx.fill();
+          ctx.restore();
+        }
       }
 
       // Sine-wave pulse factor for hovered option point (scale + glow + arrow alpha)
@@ -592,42 +650,62 @@ export class GraphVisualizer {
         ctx.restore();
       }
 
+      // Wrong-click feedback: red dashed line + arrow, fading out over 600ms
+      if (this._wrongAnimIdx >= 0 && performance.now() < this._wrongAnimEnd && this._optionCurrent) {
+        const wrongPt = this._optionPoints[this._wrongAnimIdx];
+        if (wrongPt) {
+          const t = (performance.now() - this._wrongAnimStart) / 600;
+          const [ax1, ay1] = this._w2c(...this._optionCurrent);
+          const [ax2, ay2] = this._w2c(...wrongPt);
+          ctx.save();
+          ctx.globalAlpha = 0.9 * (1 - t);
+          ctx.strokeStyle = '#ef4444';
+          ctx.lineWidth   = 2;
+          ctx.setLineDash([6, 4]);
+          ctx.beginPath();
+          ctx.moveTo(ax1, ay1);
+          ctx.lineTo(ax2, ay2);
+          ctx.stroke();
+          ctx.restore();
+          ctx.save();
+          ctx.globalAlpha = 0.9 * (1 - t);
+          this._drawArrow2D(ctx, ax1, ay1, ax2, ay2, '#ef4444');
+          ctx.restore();
+        }
+      }
+
       // Option points (clickable)
       this._optionPoints.forEach((v, i) => {
         const [cx, cy] = this._w2c(...v);
         if (cx < -10 || cx > W + 10 || cy < -10 || cy > H + 10) return;
 
         const isHovered = i === this._hoveredOptIdx;
-        const radius = isHovered ? (9 + hoverPulse * 1) : 9; // 9..12
-
-        // Click ripple
-        if (i === this._clickAnimIdx && performance.now() < this._clickAnimEnd) {
-          const progress = (performance.now() - this._clickAnimStart) / (this._clickAnimEnd - this._clickAnimStart);
-          ctx.save();
-          ctx.globalAlpha = 0.65 * (1 - progress);
-          ctx.beginPath();
-          ctx.arc(cx, cy, 9 + 24 * progress, 0, Math.PI * 2);
-          ctx.strokeStyle = isDark ? '#818cf8' : '#5c6ef8';
-          ctx.stroke();
-          ctx.restore();
+        const isWrong   = i === this._wrongAnimIdx && performance.now() < this._wrongAnimEnd;
+        // Decaying shake offset for wrong-click
+        let shakeX = 0;
+        if (isWrong) {
+          const t = (performance.now() - this._wrongAnimStart) / 600;
+          shakeX = Math.sin((performance.now() - this._wrongAnimStart) * 0.05) * 5 * (1 - t);
         }
+        const radius = isHovered ? (9 + hoverPulse * 1) : 9;
 
-        const glowBlur = isHovered ? (6 + hoverPulse * 14) : 6; // 6..20
+        const glowBlur = isHovered ? (6 + hoverPulse * 14) : isWrong ? 10 : 6;
         ctx.save();
-        ctx.shadowBlur  = glowBlur;
-        ctx.globalAlpha = isHovered ? (0.8 + hoverPulse * 0.2) : 1; // 0.8..1.0
+        ctx.shadowBlur   = glowBlur;
+        ctx.shadowColor  = isWrong ? '#ef4444' : (isDark ? '#818cf8' : '#5c6ef8');
+        ctx.globalAlpha  = isHovered ? (0.8 + hoverPulse * 0.2) : 1;
         ctx.beginPath();
-        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-        ctx.fillStyle = isHovered
-          ? (isDark ? '#a5b4fc' : '#4a5ae6')
-          : (isDark ? '#818cf8' : '#5c6ef8');
+        ctx.arc(cx + shakeX, cy, radius, 0, Math.PI * 2);
+        ctx.fillStyle = isWrong
+          ? '#ef4444'
+          : isHovered ? (isDark ? '#a5b4fc' : '#4a5ae6') : (isDark ? '#818cf8' : '#5c6ef8');
         ctx.fill();
         ctx.restore();
 
         // Border
         ctx.save();
         ctx.beginPath();
-        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        ctx.arc(cx + shakeX, cy, radius, 0, Math.PI * 2);
         ctx.strokeStyle = isDark ? 'rgba(232,232,255,0.9)' : '#ffffff';
         ctx.lineWidth   = 1.5;
         ctx.stroke();
@@ -639,16 +717,16 @@ export class GraphVisualizer {
         ctx.fillStyle    = '#ffffff';
         ctx.textAlign    = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('?', cx, cy);
+        ctx.fillText('?', cx + shakeX, cy);
         ctx.restore();
 
         // Coordinate label
         const lbl = `(${v.map(x => Math.round(x * 100) / 100).join(', ')})`;
         ctx.save();
         ctx.font      = `${isHovered ? 'bold ' : ''}10px Fira Code,monospace`;
-        ctx.fillStyle = isDark ? '#818cf8' : '#5c6ef8';
+        ctx.fillStyle = isWrong ? '#ef4444' : (isDark ? '#818cf8' : '#5c6ef8');
         ctx.globalAlpha = isHovered ? 1 : 0.8;
-        ctx.fillText(lbl, cx + (isHovered ? 15 : 12), cy - 8);
+        ctx.fillText(lbl, cx + shakeX + (isHovered ? 15 : 12), cy - 8);
         ctx.restore();
       });
     } else {
@@ -1104,13 +1182,8 @@ export class GraphVisualizer {
       return Math.hypot(px - cx, py - cy) < 20;
     });
     if (idx >= 0) {
-      const pt = this._optionPoints[idx]; // capture before state changes
-      this._clickAnimIdx   = idx;
-      this._clickAnimStart = performance.now();
-      this._clickAnimEnd   = this._clickAnimStart + 380;
-      this._startAnim2D();
-      // Delay callback so the ripple animation plays before the state is cleared
-      setTimeout(() => this._onOptionSelect?.(pt), 380);
+      const pt = this._optionPoints[idx];
+      this._onOptionSelect?.(pt);
     }
   }
 

@@ -8,10 +8,11 @@ import { CONSTRAINT_COLORS, formatConstraint, fmt } from '../utils/utils.js';
  *   onLPChanged — called with (newLP) after any user edit
  */
 export class LPPanel {
-  constructor(bodyId, { visualizer, onLPChanged, settings, onGenerate }) {
+  constructor(bodyId, { visualizer, onLPChanged, onLPLiveChange, settings, onGenerate }) {
     this.bodyEl        = document.getElementById(bodyId);
     this._visualizer   = visualizer;
     this._onLPChanged  = onLPChanged;
+    this._onLPLive     = onLPLiveChange;
     this._settings     = settings ?? { numVars: 2, solutionType: 'unique', numConstraints: 4 };
     this._onGenerate   = onGenerate ?? (() => {});
     this._lp           = null;
@@ -158,8 +159,8 @@ export class LPPanel {
   _attachEvents() {
     /* Constraint list delegation */
     document.getElementById('constraint-list')?.addEventListener('click', e => this._conListClick(e));
-    document.getElementById('add-con-btn')?.addEventListener('click', () => this._openConstraintEditor(-1));
-    document.querySelector('.edit-obj-btn')?.addEventListener('click', () => this._openObjectiveEditor());
+    document.getElementById('add-con-btn')?.addEventListener('click', () => this._openAddEditor());
+    document.querySelector('.edit-obj-btn')?.addEventListener('click', () => this._inlineEditObjective());
 
     /* Constraint row hover → visualizer highlight */
     document.querySelectorAll('.constraint-row').forEach(row => {
@@ -188,107 +189,153 @@ export class LPPanel {
     if (!row) return;
     const idx = parseInt(row.dataset.idx);
     if (e.target.closest('.edit-btn')) {
-      this._openConstraintEditor(idx);
+      this._inlineEditConstraint(idx);
     } else if (e.target.closest('.del-btn')) {
       this._lp.constraints.splice(idx, 1);
       this._onLPChanged(this._lp);
     }
   }
 
-  /* ── Objective editor ── */
+  /* ── Add new constraint (popup editor, not inline) ── */
 
-  _openObjectiveEditor() {
-    document.querySelector('.obj-editor')?.remove();
-    const { objective, variables } = this._lp;
-
-    const editor = document.createElement('div');
-    editor.className = 'constraint-editor obj-editor';
-
-    const varFields = objective.coefficients.map((c, i) => `
-      <input type="number" class="coeff-in obj-coeff" data-vi="${i}" value="${c}" step="1" />
-      <span class="var-lbl">${variables[i]}</span>
-      ${i < variables.length - 1 ? '<span style="color:var(--text-muted)">+</span>' : ''}
-    `).join('');
-
-    editor.innerHTML = `
-      <select class="sense-sel obj-type-sel">
-        <option value="max" ${objective.type === 'max' ? 'selected' : ''}>max</option>
-        <option value="min" ${objective.type === 'min' ? 'selected' : ''}>min</option>
-      </select>
-      <span class="op" style="font-family:var(--font-mono)">z =</span>
-      ${varFields}
-      <div class="editor-btns">
-        <button class="btn-save obj-save">&#10003; Save</button>
-        <button class="btn-cancel obj-cancel">&#10005;</button>
-      </div>`;
-
-    editor.querySelector('.obj-cancel').addEventListener('click', () => editor.remove());
-    editor.querySelector('.obj-save').addEventListener('click', () => {
-      const type   = editor.querySelector('.obj-type-sel').value;
-      const coeffs = Array.from(editor.querySelectorAll('.obj-coeff'))
-        .map(inp => parseFloat(inp.value) || 0);
-      this._lp.objective = { type, coefficients: coeffs };
-      this._onLPChanged(this._lp);
-    });
-
-    document.getElementById('lp-obj-row')?.after(editor);
-    editor.querySelector('.obj-coeff')?.focus();
-  }
-
-  /* ── Constraint editor ── */
-
-  _openConstraintEditor(idx) {
+  _openAddEditor() {
     document.querySelector('.constraint-editor')?.remove();
-    const n   = this._lp ? this._lp.variables.length : 2;
-    const con = idx >= 0 ? this._lp.constraints[idx] : {
-      coefficients: Array(n).fill(1),
-      sense: '<=',
-      rhs: 10,
-    };
+    const n   = this._lp.variables.length;
+    const con = { coefficients: Array(n).fill(1), sense: '<=', rhs: 10 };
 
     const editor = document.createElement('div');
     editor.className = 'constraint-editor';
 
-    const varFields = con.coefficients.map((c, i) => `
-      <input type="number" class="coeff-in" data-vi="${i}" value="${c}" step="1" />
-      <span class="var-lbl">${this._lp.variables[i]}</span>
-      ${i < n - 1 ? '<span style="color:var(--text-muted)">+</span>' : ''}
-    `).join('');
+    const varFields = con.coefficients.map((c, i) =>
+      `${i > 0 ? '<span style="color:var(--text-muted)">+</span>' : ''}` +
+      `<input type="number" class="coeff-in" data-vi="${i}" value="${c}" step="1">` +
+      `<span class="var-lbl">${this._lp.variables[i]}</span>`
+    ).join('');
 
-    editor.innerHTML = `
-      ${varFields}
-      <select class="sense-sel">
-        <option value="<=" ${con.sense === '<=' ? 'selected' : ''}>≤</option>
-        <option value=">=" ${con.sense === '>=' ? 'selected' : ''}>≥</option>
-        <option value="="  ${con.sense === '='  ? 'selected' : ''}>=</option>
-      </select>
-      <input type="number" class="rhs-in" value="${con.rhs}" step="1" />
-      <div class="editor-btns">
-        <button class="btn-save">&#10003; Save</button>
-        <button class="btn-cancel">&#10005;</button>
-      </div>`;
+    editor.innerHTML =
+      varFields +
+      `<select class="sense-sel"><option value="<=">≤</option><option value=">=">≥</option><option value="=">=</option></select>` +
+      `<input type="number" class="rhs-in" value="${con.rhs}" step="1">` +
+      `<div class="editor-btns">` +
+        `<button class="btn-save">✓ Add</button>` +
+        `<button class="btn-cancel">✕</button>` +
+      `</div>`;
 
     editor.querySelector('.btn-cancel').addEventListener('click', () => editor.remove());
     editor.querySelector('.btn-save').addEventListener('click', () => {
-      const coeffs = Array.from(editor.querySelectorAll('.coeff-in'))
-        .map(inp => parseFloat(inp.value) || 0);
-      const sense = editor.querySelector('.sense-sel').value;
-      const rhs   = parseFloat(editor.querySelector('.rhs-in').value) || 0;
-      if (idx >= 0) {
-        this._lp.constraints[idx] = { coefficients: coeffs, sense, rhs };
-      } else {
-        if (!this._lp) return;
-        this._lp.constraints.push({ coefficients: coeffs, sense, rhs });
-      }
+      const coeffs = Array.from(editor.querySelectorAll('[data-vi]')).map(i => parseFloat(i.value) || 0);
+      const sense  = editor.querySelector('.sense-sel').value;
+      const rhs    = parseFloat(editor.querySelector('.rhs-in').value) || 0;
+      this._lp.constraints.push({ coefficients: coeffs, sense, rhs });
       this._onLPChanged(this._lp);
     });
 
-    if (idx >= 0) {
-      document.querySelector(`.constraint-row[data-idx="${idx}"]`)?.after(editor);
-    } else {
-      document.getElementById('add-con-btn')?.before(editor);
-    }
+    document.getElementById('add-con-btn')?.before(editor);
     editor.querySelector('.coeff-in')?.focus();
+  }
+
+  _inlineEditObjective() {
+    const row = document.getElementById('lp-obj-row');
+    if (!row || row.classList.contains('editing')) return;
+
+    const { objective, variables } = this._lp;
+    const actions = row.querySelector('.c-actions');
+
+    const fields = objective.coefficients.map((c, i) =>
+      `${i > 0 ? '<span class="op"> + </span>' : ''}` +
+      `<input class="coeff-in ie-num" data-vi="${i}" type="number" value="${c}" step="1">` +
+      `<span class="var-lbl">${variables[i]}</span>`
+    ).join('');
+
+    row.innerHTML =
+      `<select class="sense-sel ie-obj-type">` +
+        `<option value="max" ${objective.type === 'max' ? 'selected' : ''}>MAX</option>` +
+        `<option value="min" ${objective.type === 'min' ? 'selected' : ''}>MIN</option>` +
+      `</select>` +
+      fields;
+    row.appendChild(actions);
+    row.classList.add('editing');
+
+    let committed = false;
+    const liveUpdate = () => {
+      const type   = row.querySelector('.ie-obj-type').value;
+      const coeffs = Array.from(row.querySelectorAll('[data-vi]')).map(i => parseFloat(i.value) || 0);
+      this._lp.objective = { type, coefficients: coeffs };
+      this._onLPLive?.(this._lp);
+    };
+    const commit = () => {
+      if (committed) return;
+      committed = true;
+      const type   = row.querySelector('.ie-obj-type').value;
+      const coeffs = Array.from(row.querySelectorAll('[data-vi]')).map(i => parseFloat(i.value) || 0);
+      this._lp.objective = { type, coefficients: coeffs };
+      this._onLPChanged(this._lp);
+    };
+
+    row.querySelectorAll('input').forEach(el => el.addEventListener('input', liveUpdate));
+    row.querySelectorAll('select').forEach(el => el.addEventListener('change', liveUpdate));
+    row.querySelectorAll('input, select').forEach(el => el.addEventListener('change', commit));
+    row.addEventListener('focusout', e => {
+      if (!row.contains(e.relatedTarget) && !committed) this._render();
+    });
+    row.querySelector('.ie-num')?.focus();
+  }
+
+  /* ── Constraint inline edit ── */
+
+  _inlineEditConstraint(idx) {
+    const row = document.querySelector(`.constraint-row[data-idx="${idx}"]`);
+    if (!row || row.classList.contains('editing')) return;
+
+    const con  = this._lp.constraints[idx];
+    const vars = this._lp.variables;
+    const cExpr = row.querySelector('.c-expr');
+
+    const fields = con.coefficients.map((c, i) =>
+      `${i > 0 ? '<span class="op"> + </span>' : ''}` +
+      `<input class="coeff-in ie-num" data-vi="${i}" type="number" value="${c}" step="1">` +
+      `<span class="var-lbl">${vars[i]}</span>`
+    ).join('');
+
+    cExpr.innerHTML =
+      fields +
+      `<select class="sense-sel ie-sense">` +
+        `<option value="<=" ${con.sense === '<=' ? 'selected' : ''}>≤</option>` +
+        `<option value=">=" ${con.sense === '>=' ? 'selected' : ''}>≥</option>` +
+        `<option value="="  ${con.sense === '='  ? 'selected' : ''}>=</option>` +
+      `</select>` +
+      `<input class="rhs-in ie-num" type="number" value="${con.rhs}" step="1">`;
+
+    row.classList.add('editing');
+
+    let committed = false;
+    const liveUpdate = () => {
+      const coeffs = Array.from(row.querySelectorAll('[data-vi]')).map(i => parseFloat(i.value) || 0);
+      const sense  = row.querySelector('.ie-sense').value;
+      const rhs    = parseFloat(row.querySelector('.rhs-in').value) || 0;
+      this._lp.constraints[idx] = { coefficients: coeffs, sense, rhs };
+      this._onLPLive?.(this._lp);
+    };
+    const commit = () => {
+      if (committed) return;
+      committed = true;
+      const coeffs = Array.from(row.querySelectorAll('[data-vi]')).map(i => parseFloat(i.value) || 0);
+      const sense  = row.querySelector('.ie-sense').value;
+      const rhs    = parseFloat(row.querySelector('.rhs-in').value) || 0;
+      this._lp.constraints[idx] = { coefficients: coeffs, sense, rhs };
+      this._onLPChanged(this._lp);
+    };
+
+    cExpr.querySelectorAll('input').forEach(el => el.addEventListener('input', liveUpdate));
+    cExpr.querySelectorAll('select').forEach(el => el.addEventListener('change', liveUpdate));
+    cExpr.querySelectorAll('input, select').forEach(el => el.addEventListener('change', commit));
+    row.addEventListener('focusout', e => {
+      if (!row.contains(e.relatedTarget) && !committed) {
+        row.classList.remove('editing');
+        cExpr.innerHTML = formatConstraint(con, vars);
+      }
+    });
+    row.querySelector('.ie-num')?.focus();
   }
 
   /* ── Highlight helpers (used by CommandManager callbacks) ── */

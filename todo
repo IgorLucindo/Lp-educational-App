@@ -1,6 +1,6 @@
-- change next btn from ai teacher container to bottom right corner of polyhedron container
+- lp generator should only generate non redundant constraints. also, coeficients are always positive, lets increase the range of coeficients to negative values
 
-- change styles of container of editing objective function or conrtaints. i want to make it simpler. clicking the pencil btn just changes the numbers in the text into inputs, instead of creating a new container. also there will be no save btn, changing the input will automatically save. clicking outside the contraint will remove the editting mode or editting style.
+- option to confirm that current selected option point is the optimal solution. give me ideas of how can i do that. btns in bottom-right corner of polyhedron container to confirm if is optiomal, btn next to the current selected point. what else? what do u think is the best one?
 
 - fix ai teacher to only use ai model with we type on chat and only allow to ask ai teacher if user try answering first, that is, clicking the option points.
 
@@ -8,12 +8,12 @@
 
 - make animations in graph visualizer for building the polyhedron when generate the lp problem. like constraints appearing in order and making cuts.
 
-- make animations on graph visualizer for each iteration of simplex, that is when user correctly click the option point (extreme point direction of simplex), like animating the arrow showing the direction of movement, animating the highlight btn. there can be other very cool ideas to add.
-
 - make styles animations, everything from 3d graph like 2d graph is, hovering styles, arrows, everything.
-
-- lp generator should only generate non redundant constraints. also, coeficients are always positive, lets increase the range of coeficients to negative values
 
 - make readme like in my other repositories.
 
-- bubble message in ai teacher btn saying that it can ask for any questions.
+- if ai teacher chat container is toggled off, say messages in bubble messages from the robot btn in the header. if we toggle on the container, we should be able to see the messages it said in bubble messages.
+
+- when generate lp problem ai teacher sends a ready message after a 4s delay, saying something like if needs any help with lp or simplex method, to ask me.
+
+- I see that there are a lot of parts on the code that directly talks about simplex, but in the future, if I want to add other options like branch and bound or interior point, I want it to be easily adaptable. idk if there is a state dict to the website, but maybe we add a solver: "simplex" and we check solver key, if it is "simplex", we go ahead and use the simplex ai teacher starting message, for example. there might be other things on the code that should be checked the solver key.

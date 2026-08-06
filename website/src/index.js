@@ -33,6 +33,11 @@ visualizer.setConstraintHoverCallback((idx, entering) => {
 const lpPanel = new LPPanel('lp-body', {
   visualizer,
   onLPChanged: handleLPChanged,
+  onLPLiveChange: (lp) => {
+    solver.setup(lp).solve();
+    const path = solver.status === 'optimal' ? solver.getVertexPath() : [];
+    visualizer.setLP(lp, path);
+  },
   settings,
   onGenerate: () => generateBtn?.click(),
 });
@@ -210,7 +215,9 @@ function refreshOptionPoints(stepIdx) {
     return;
   }
 
-  const optionPts = getAdjacentVertices(currentPt, visualizer.vertices, currentLP);
+  const visitedPath  = path.slice(0, stepIdx + 1);
+  const optionPts    = getAdjacentVertices(currentPt, visualizer.vertices, currentLP)
+    .filter(pt => !visitedPath.some(v => samePoint(v, pt)));
 
   visualizer.setOptionPoints(currentPt, optionPts, (clickedPt) => {
     const correctPt = path[stepIdx + 1];
@@ -232,13 +239,14 @@ function refreshOptionPoints(stepIdx) {
       aiPanel.explainIteration(displayIdx);
       refreshOptionPoints(stepIdx + 1);
     } else {
+      visualizer.flashWrongOptionPoint(clickedPt);
       // Wrong — nudge student via AI
       const hintPrompt =
         `The student clicked the wrong vertex on the polyhedron. Give a short hint (1-2 sentences) ` +
         `about why simplex doesn't move there next, without revealing the correct answer.`;
       aiPanel.sendAutoMessage(hintPrompt);
     }
-  });
+  }, visitedPath);
 }
 
 function samePoint(a, b, tol = 1e-5) {
